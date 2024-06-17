@@ -17,7 +17,7 @@ jobs:
         - name: get binfmt image
           run: docker run --rm --privileged docker/binfmt:a7996909642ee92942dcd6cff44b9b95f08dad64
         - name: Make the build
-          run: make docker-build-arm64 && make docker-save
+          run: make docker-arm64-gui-release && make docker-save
         - name: Upload the build
           uses: actions/upload-artifact@v4
           with:
