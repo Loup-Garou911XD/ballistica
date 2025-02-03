@@ -986,6 +986,55 @@ static PyMethodDef PySetUIAccountStateDef = {
     "\n"
     "(internal)\n",
 };
+
+// ------------------------ get_virtual_screen_size ----------------------------
+
+static auto PyGetVirtualScreenSize(PyObject* self) -> PyObject* {
+  BA_PYTHON_TRY;
+  BA_PRECONDITION(g_base->InLogicThread());
+
+  float x{g_base->graphics->screen_virtual_width()};
+  float y{g_base->graphics->screen_virtual_height()};
+  return Py_BuildValue("(ff)", x, y);
+  BA_PYTHON_CATCH;
+}
+
+static PyMethodDef PyGetVirtualScreenSizeDef = {
+    "get_virtual_screen_size",            // name
+    (PyCFunction)PyGetVirtualScreenSize,  // method
+    METH_NOARGS,                          // flags
+
+    "get_virtual_screen_size() -> tuple[float, float]\n"
+    "\n"
+    "(internal)\n"
+    "\n"
+    "Return the current virtual size of the display.",
+};
+
+// ----------------------- get_virtual_safe_area_size --------------------------
+
+static auto PyGetVirtualSafeAreaSize(PyObject* self) -> PyObject* {
+  BA_PYTHON_TRY;
+  BA_PRECONDITION(g_base->InLogicThread());
+
+  float x, y;
+  g_base->graphics->GetBaseVirtualRes(&x, &y);
+  return Py_BuildValue("(ff)", x, y);
+  BA_PYTHON_CATCH;
+}
+
+static PyMethodDef PyGetVirtualSafeAreaSizeDef = {
+    "get_virtual_safe_area_size",           // name
+    (PyCFunction)PyGetVirtualSafeAreaSize,  // method
+    METH_NOARGS,                            // flags
+
+    "get_virtual_safe_area_size() -> tuple[float, float]\n"
+    "\n"
+    "(internal)\n"
+    "\n"
+    "Return the size of the area on screen that will always be visible.",
+};
+
 // -----------------------------------------------------------------------------
 
 auto PythonMethodsBase2::GetMethods() -> std::vector<PyMethodDef> {
@@ -1021,6 +1070,8 @@ auto PythonMethodsBase2::GetMethods() -> std::vector<PyMethodDef> {
       PyFullscreenControlGetDef,
       PyFullscreenControlSetDef,
       PySetUIAccountStateDef,
+      PyGetVirtualScreenSizeDef,
+      PyGetVirtualSafeAreaSizeDef,
   };
 }
 

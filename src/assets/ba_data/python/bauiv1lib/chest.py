@@ -34,10 +34,8 @@ class ChestWindow(bui.MainWindow):
 
         assert bui.app.classic is not None
         uiscale = bui.app.ui_v1.uiscale
-        self._width = 1050 if uiscale is bui.UIScale.SMALL else 650
-        self._height = 550 if uiscale is bui.UIScale.SMALL else 450
-        self._xoffs = 70 if uiscale is bui.UIScale.SMALL else 0
-        self._yoffs = -50 if uiscale is bui.UIScale.SMALL else -35
+        self._width = 1200 if uiscale is bui.UIScale.SMALL else 650
+        self._height = 800 if uiscale is bui.UIScale.SMALL else 450
         self._action_in_flight = False
         self._open_now_button: bui.Widget | None = None
         self._open_now_spinner: bui.Widget | None = None
@@ -57,23 +55,40 @@ class ChestWindow(bui.MainWindow):
         # The set of widgets we keep when doing a clear.
         self._core_widgets: list[bui.Widget] = []
 
+        # Do some fancy math to fill all available screen area up to the
+        # size of our backing container. This lets us fit to the exact
+        # screen shape at small ui scale.
+        screensize = bui.get_virtual_screen_size()
+        scale = (
+            1.8
+            if uiscale is bui.UIScale.SMALL
+            else 1.1 if uiscale is bui.UIScale.MEDIUM else 0.9
+        )
+        # Calc screen size in our local container space and clamp to a
+        # bit smaller than our container size.
+        target_height = min(self._height - 120, screensize[1] / scale)
+
+        # To get top/left coords, go to the center of our window and
+        # offset by half the width/height of our target area.
+        self._yoffstop = 0.5 * self._height + 0.5 * target_height + 18
+
+        # Offset for stuff we want centered.
+        self._yoffs = 0.5 * self._height + (
+            220 if uiscale is bui.UIScale.SMALL else 190
+        )
+
+        self._chest_yoffs = self._yoffs - 223
+
         super().__init__(
             root_widget=bui.containerwidget(
                 size=(self._width, self._height),
                 toolbar_visibility='menu_full',
-                scale=(
-                    1.45
-                    if uiscale is bui.UIScale.SMALL
-                    else 1.1 if uiscale is bui.UIScale.MEDIUM else 0.9
-                ),
-                stack_offset=(
-                    (0, 0)
-                    if uiscale is bui.UIScale.SMALL
-                    else (0, 15) if uiscale is bui.UIScale.MEDIUM else (0, 0)
-                ),
+                scale=scale,
             ),
             transition=transition,
             origin_widget=origin_widget,
+            # We're affected by screen size only at small ui-scale.
+            refresh_on_screen_size_changes=uiscale is bui.UIScale.SMALL,
         )
 
         # Tell the root-ui to stop updating toolbar values immediately;
@@ -84,11 +99,18 @@ class ChestWindow(bui.MainWindow):
 
         self._title_text = bui.textwidget(
             parent=self._root_widget,
-            position=(0, self._height - 50 + self._yoffs),
-            size=(self._width, 25),
-            text=f'Chest Slot {self._index + 1}',
+            position=(
+                self._width * 0.5,
+                self._yoffstop - (36 if uiscale is bui.UIScale.SMALL else 10),
+            ),
+            size=(0, 0),
+            text=bui.Lstr(
+                resource='chests.slotText',
+                subs=[('${NUM}', str(index + 1))],
+            ),
             color=bui.app.ui_v1.title_color,
-            maxwidth=150.0,
+            maxwidth=110.0 if uiscale is bui.UIScale.SMALL else 200,
+            scale=0.9 if uiscale is bui.UIScale.SMALL else 1.1,
             h_align='center',
             v_align='center',
         )
@@ -101,7 +123,7 @@ class ChestWindow(bui.MainWindow):
         else:
             btn = bui.buttonwidget(
                 parent=self._root_widget,
-                position=(self._xoffs + 50, self._height - 55 + self._yoffs),
+                position=(50, self._yoffs - 44),
                 size=(60, 55),
                 scale=0.8,
                 label=bui.charstr(bui.SpecialChar.BACK),
@@ -118,11 +140,13 @@ class ChestWindow(bui.MainWindow):
         self._loadingspinner = bui.spinnerwidget(
             parent=self._root_widget,
             position=(self._width * 0.5, self._height * 0.5),
+            size=48,
+            style='bomb',
         )
 
         self._infotext = bui.textwidget(
             parent=self._root_widget,
-            position=(self._width * 0.5, self._height - 200 + self._yoffs),
+            position=(self._width * 0.5, self._yoffs - 200),
             size=(0, 0),
             text='',
             maxwidth=700,
@@ -160,7 +184,6 @@ class ChestWindow(bui.MainWindow):
             )
 
     def __del__(self) -> None:
-        # print('~ChestWindow()')
 
         # Make sure UI updates are resumed if we haven't done so.
         if self._root_ui_updates_paused:
@@ -203,8 +226,7 @@ class ChestWindow(bui.MainWindow):
 
         if isinstance(response, Exception):
             self._error(
-                # bui.Lstr(resource='internal.unavailableNoConnectionText')
-                'Unable to complete this right now.\nPlease try again.',
+                bui.Lstr(resource='internal.unableToCompleteTryAgainText'),
                 minor=True,
             )
             return
@@ -225,8 +247,7 @@ class ChestWindow(bui.MainWindow):
         # Communication/local error:
         if isinstance(response, Exception):
             self._error(
-                # bui.Lstr(resource='internal.unavailableNoConnectionText')
-                'Unable to complete this right now.\nPlease try again.',
+                bui.Lstr(resource='internal.unableToCompleteTryAgainText'),
                 minor=True,
             )
             return
@@ -292,7 +313,10 @@ class ChestWindow(bui.MainWindow):
         )
 
         bui.textwidget(
-            edit=self._title_text, text=f'{chest.appearance.name} Chest'
+            edit=self._title_text,
+            text=bui.Lstr(
+                translate=('displayItemNames', chest.appearance.pretty_name)
+            ),
         )
 
         imgsize = 145
@@ -300,7 +324,8 @@ class ChestWindow(bui.MainWindow):
             parent=self._root_widget,
             position=(
                 self._width * 0.5 - imgsize * 0.5,
-                self._height - 223 + self._yoffs,
+                # self._height - 223 + self._yoffs,
+                self._chest_yoffs,
             ),
             color=self._chestdisplayinfo.color,
             size=(imgsize, imgsize),
@@ -322,7 +347,8 @@ class ChestWindow(bui.MainWindow):
                 parent=self._root_widget,
                 position=(
                     self._width * 0.5 - imgsize * 0.4 - lsize * 0.5,
-                    self._height - 223 + 27.0 + self._yoffs,
+                    # self._height - 223 + 27.0 + self._yoffs,
+                    self._chest_yoffs + 27.0,
                 ),
                 size=(lsize, lsize),
                 texture=bui.gettexture('lock'),
@@ -332,7 +358,11 @@ class ChestWindow(bui.MainWindow):
         if chest.unlock_tokens != 0:
             self._time_string_text = bui.textwidget(
                 parent=self._root_widget,
-                position=(self._width * 0.5, self._height - 85 + self._yoffs),
+                position=(
+                    self._width * 0.5,
+                    # self._height - 85 + self._yoffs
+                    self._yoffs - 85,
+                ),
                 size=(0, 0),
                 text='',
                 maxwidth=700,
@@ -366,7 +396,7 @@ class ChestWindow(bui.MainWindow):
             parent=self._root_widget,
             position=(
                 self._width * 0.5 - bwidth * 0.5 + boffsx,
-                self._height + bposy + self._yoffs,
+                self._yoffs + bposy,
             ),
             size=(bwidth, bheight),
             label='',
@@ -385,10 +415,10 @@ class ChestWindow(bui.MainWindow):
             self._open_now_texts.append(
                 bui.textwidget(
                     parent=self._root_widget,
-                    text='Open',
+                    text=bui.Lstr(resource='openText'),
                     position=(
                         self._width * 0.5 + boffsx,
-                        self._height + bposy + self._yoffs + bheight * 0.5,
+                        self._yoffs + bposy + bheight * 0.5,
                     ),
                     color=(0, 1, 0),
                     draw_controller=self._open_now_button,
@@ -403,10 +433,10 @@ class ChestWindow(bui.MainWindow):
             self._open_now_texts.append(
                 bui.textwidget(
                     parent=self._root_widget,
-                    text='Open Now',
+                    text=bui.Lstr(resource='openNowText'),
                     position=(
                         self._width * 0.5 + boffsx,
-                        self._height + bposy + self._yoffs + bheight * 1.15,
+                        self._yoffs + bposy + bheight * 1.15,
                     ),
                     maxwidth=bwidth * 0.8,
                     scale=0.7,
@@ -422,7 +452,7 @@ class ChestWindow(bui.MainWindow):
                     size=(iconsize, iconsize),
                     position=(
                         self._width * 0.5 - iconsize * 0.5 + boffsx,
-                        self._height + bposy + self._yoffs + bheight * 0.35,
+                        self._yoffs + bposy + bheight * 0.35,
                     ),
                     draw_controller=self._open_now_button,
                     texture=bui.gettexture('coin'),
@@ -437,7 +467,7 @@ class ChestWindow(bui.MainWindow):
                     ),
                     position=(
                         self._width * 0.5 + boffsx,
-                        self._height + bposy + self._yoffs + bheight * 0.25,
+                        self._yoffs + bposy + bheight * 0.25,
                     ),
                     scale=0.65,
                     color=(0, 1, 0),
@@ -452,7 +482,7 @@ class ChestWindow(bui.MainWindow):
             parent=self._root_widget,
             position=(
                 self._width * 0.5 + boffsx,
-                self._height + bposy + self._yoffs + 0.5 * bheight,
+                self._yoffs + bposy + 0.5 * bheight,
             ),
             visible=False,
         )
@@ -460,10 +490,10 @@ class ChestWindow(bui.MainWindow):
         if show_ad_button:
             bui.textwidget(
                 parent=self._root_widget,
-                text='Reduce Wait',
+                text=bui.Lstr(resource='chests.reduceWaitText'),
                 position=(
                     self._width * 0.5 + hspace * 0.5 + bwidth * 0.5,
-                    self._height + bposy + self._yoffs + bheight * 1.15,
+                    self._yoffs + bposy + bheight * 1.15,
                 ),
                 maxwidth=bwidth * 0.8,
                 scale=0.7,
@@ -476,7 +506,7 @@ class ChestWindow(bui.MainWindow):
                 parent=self._root_widget,
                 position=(
                     self._width * 0.5 + hspace * 0.5,
-                    self._height + bposy + self._yoffs,
+                    self._yoffs + bposy,
                 ),
                 size=(bwidth, bheight),
                 label='',
@@ -493,7 +523,7 @@ class ChestWindow(bui.MainWindow):
                     + hspace * 0.5
                     + bwidth * 0.5
                     - iconsize * 0.5,
-                    self._height + bposy + self._yoffs + bheight * 0.35,
+                    self._yoffs + bposy + bheight * 0.35,
                 ),
                 draw_controller=self._watch_ad_button,
                 color=(1.5, 1.0, 2.0),
@@ -506,7 +536,7 @@ class ChestWindow(bui.MainWindow):
                 text=bui.Lstr(resource='watchAnAdText'),
                 position=(
                     self._width * 0.5 + hspace * 0.5 + bwidth * 0.5,
-                    self._height + bposy + self._yoffs + bheight * 0.25,
+                    self._yoffs + bposy + bheight * 0.25,
                 ),
                 scale=0.65,
                 color=(0, 1, 0),
@@ -555,12 +585,12 @@ class ChestWindow(bui.MainWindow):
         rowheight = 25
         totalheight = (len(self._prizesets) + 1) * rowheight
         x = self._width * 0.5 + xoffs
-        y = self._height + self._yoffs - 150.0 + totalheight * 0.5
+        y = self._yoffs - 150.0 + totalheight * 0.5
 
         # Title.
         bui.textwidget(
             parent=self._root_widget,
-            text='Prize Odds',
+            text=bui.Lstr(resource='chests.prizeOddsText'),
             color=(0.7, 0.65, 1, 0.5),
             flatness=1.0,
             shadow=1.0,
@@ -623,10 +653,12 @@ class ChestWindow(bui.MainWindow):
             # Show decimals only if we get very small percentages (looks
             # better than rounding as '0%').
             percenttxt = (
-                f'{percent:.2f}'
-                if percent < 0.1
+                f'{percent:.2f}%:'
+                if percent < 0.095
                 else (
-                    f'{percent:.1f}' if percent < 1.0 else f'{round(percent)}%:'
+                    f'{percent:.1f}%:'
+                    if percent < 0.95
+                    else f'{round(percent)}%:'
                 )
             )
 
@@ -791,13 +823,11 @@ class ChestWindow(bui.MainWindow):
             return
 
         self._reset()
-        msg = (
-            'This slot can hold a treasure chest.\n\n'
-            'Earn chests by playing campaign levels,\n'
-            'placing in tournaments, and completing\n'
-            'achievements.'
+        bui.textwidget(
+            edit=self._infotext,
+            text=bui.Lstr(resource='chests.slotDescriptionText'),
+            color=(1, 1, 1),
         )
-        bui.textwidget(edit=self._infotext, text=msg, color=(1, 1, 1))
 
     def _show_chest_contents(
         self, response: bacommon.bs.ChestActionResponse
@@ -846,11 +876,7 @@ class ChestWindow(bui.MainWindow):
                 edit=img,
                 position=(
                     self._width * 0.5 - imgsize * scale * 0.5 + x,
-                    self._height
-                    - 223
-                    + self._yoffs
-                    + imgsize * 0.5
-                    - imgsize * scale * 0.5,
+                    self._yoffs - 223 + imgsize * 0.5 - imgsize * scale * 0.5,
                 ),
                 size=(imgsize * scale, imgsize * scale),
             )
@@ -928,7 +954,7 @@ class ChestWindow(bui.MainWindow):
                     self._root_widget,
                     pos=(
                         self._width * 0.5 + xoffs,
-                        self._height - 250.0 + self._yoffs,
+                        self._yoffs - 250.0,
                     ),
                     width=width,
                 ),
@@ -989,11 +1015,7 @@ class ChestWindow(bui.MainWindow):
                 edit=img,
                 position=(
                     self._width * 0.5 - imgsize * scale * 0.5 + x,
-                    self._height
-                    - 223
-                    + self._yoffs
-                    + imgsize * 0.5
-                    - imgsize * scale * 0.5,
+                    self._yoffs - 223 + imgsize * 0.5 - imgsize * scale * 0.5,
                 ),
                 size=(imgsize * scale, imgsize * scale),
             )
@@ -1041,7 +1063,7 @@ class ChestWindow(bui.MainWindow):
             parent=self._root_widget,
             position=(
                 self._width * 0.5 - bwidth * 0.5,
-                self._height - 350 + self._yoffs,
+                self._yoffs - 350,
             ),
             size=(bwidth, bheight),
             label=bui.Lstr(resource='doneText'),

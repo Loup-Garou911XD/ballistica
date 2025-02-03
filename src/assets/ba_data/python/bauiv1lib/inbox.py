@@ -16,6 +16,7 @@ import bacommon.bs
 import bauiv1 as bui
 
 if TYPE_CHECKING:
+    import datetime
     from typing import Callable
 
 
@@ -36,9 +37,9 @@ class _TextSection(_Section):
 
     def __init__(
         self,
+        *,
         sub_width: float,
         text: bui.Lstr | str,
-        *,
         spacing_top: float = 0.0,
         spacing_bottom: float = 0.0,
         scale: float = 0.6,
@@ -96,9 +97,9 @@ class _ButtonSection(_Section):
 
     def __init__(
         self,
+        *,
         sub_width: float,
         label: bui.Lstr | str,
-        *,
         color: tuple[float, float, float],
         label_color: tuple[float, float, float],
         call: Callable[[_ButtonSection], None],
@@ -159,10 +160,10 @@ class _DisplayItemsSection(_Section):
 
     def __init__(
         self,
+        *,
         sub_width: float,
         items: list[bacommon.bs.DisplayItemWrapper],
         width: float = 100.0,
-        *,
         spacing_top: float = 0.0,
         spacing_bottom: float = 0.0,
     ) -> None:
@@ -205,6 +206,88 @@ class _DisplayItemsSection(_Section):
             x += xspacing
 
 
+class _ExpireTimeSection(_Section):
+
+    def __init__(
+        self,
+        *,
+        sub_width: float,
+        time: datetime.datetime,
+        spacing_top: float = 0.0,
+        spacing_bottom: float = 0.0,
+    ) -> None:
+        self.time = time
+        self.sub_width = sub_width
+        self.spacing_top = spacing_top
+        self.spacing_bottom = spacing_bottom
+        self.color = (1.0, 0.0, 1.0)
+        self._timer: bui.AppTimer | None = None
+        self._widget: bui.Widget | None = None
+        self.text_scale = 0.4
+        self.text_height = 30.0 * self.text_scale
+        self.full_height = self.text_height + spacing_top + spacing_bottom
+
+    @override
+    def get_height(self) -> float:
+        return self.full_height
+
+    def _update(self) -> None:
+        if not self._widget:
+            return
+
+        now = bui.utc_now_cloud()
+
+        val: bui.Lstr
+        if now < self.time:
+            color = (1.0, 1.0, 1.0, 0.3)
+            val = bui.Lstr(
+                resource='expiresInText',
+                subs=[
+                    (
+                        '${T}',
+                        bui.timestring(
+                            (self.time - now).total_seconds(), centi=False
+                        ),
+                    ),
+                ],
+            )
+        else:
+            color = (1.0, 0.3, 0.3, 0.5)
+            val = bui.Lstr(
+                resource='expiredAgoText',
+                subs=[
+                    (
+                        '${T}',
+                        bui.timestring(
+                            (now - self.time).total_seconds(), centi=False
+                        ),
+                    ),
+                ],
+            )
+        bui.textwidget(edit=self._widget, text=val, color=color)
+
+    @override
+    def emit(self, subcontainer: bui.Widget, y: float) -> None:
+        self._widget = bui.textwidget(
+            parent=subcontainer,
+            position=(
+                self.sub_width * 0.5,
+                y - self.spacing_top - self.text_height * 0.5,
+            ),
+            color=self.color,
+            scale=self.text_scale,
+            flatness=1.0,
+            shadow=1.0,
+            text='',
+            maxwidth=self.sub_width * 0.7,
+            size=(0, 0),
+            h_align='center',
+            v_align='center',
+        )
+        self._timer = bui.AppTimer(1.0, bui.WeakCall(self._update), repeat=True)
+        self._update()
+
+
 @dataclass
 class _EntryDisplay:
     interaction_style: bacommon.bs.BasicClientUI.InteractionStyle
@@ -236,13 +319,34 @@ class InboxWindow(bui.MainWindow):
 
         self._entry_displays: list[_EntryDisplay] = []
 
-        self._width = 800 if uiscale is bui.UIScale.SMALL else 500
+        self._width = 900 if uiscale is bui.UIScale.SMALL else 500
         self._height = (
-            485
+            600
             if uiscale is bui.UIScale.SMALL
-            else 370 if uiscale is bui.UIScale.MEDIUM else 450
+            else 460 if uiscale is bui.UIScale.MEDIUM else 600
         )
-        yoffs = -42 if uiscale is bui.UIScale.SMALL else 0
+
+        # Do some fancy math to fill all available screen area up to the
+        # size of our backing container. This lets us fit to the exact
+        # screen shape at small ui scale.
+        screensize = bui.get_virtual_screen_size()
+        scale = (
+            1.9
+            if uiscale is bui.UIScale.SMALL
+            else 1.3 if uiscale is bui.UIScale.MEDIUM else 1.0
+        )
+        # Calc screen size in our local container space and clamp to a
+        # bit smaller than our container size.
+        target_width = min(self._width - 60, screensize[0] / scale)
+        target_height = min(self._height - 70, screensize[1] / scale)
+
+        # To get top/left coords, go to the center of our window and offset
+        # by half the width/height of our target area.
+        yoffs = 0.5 * self._height + 0.5 * target_height + 30.0
+
+        scroll_width = target_width
+        scroll_height = target_height - 31
+        scroll_bottom = yoffs - 59 - scroll_height
 
         super().__init__(
             root_widget=bui.containerwidget(
@@ -250,19 +354,12 @@ class InboxWindow(bui.MainWindow):
                 toolbar_visibility=(
                     'menu_full' if uiscale is bui.UIScale.SMALL else 'menu_full'
                 ),
-                scale=(
-                    1.74
-                    if uiscale is bui.UIScale.SMALL
-                    else 1.5 if uiscale is bui.UIScale.MEDIUM else 1.15
-                ),
-                stack_offset=(
-                    (0, 0)
-                    if uiscale is bui.UIScale.SMALL
-                    else (0, 0) if uiscale is bui.UIScale.MEDIUM else (0, 0)
-                ),
+                scale=scale,
             ),
             transition=transition,
             origin_widget=origin_widget,
+            # We're affected by screen size only at small ui-scale.
+            refresh_on_screen_size_changes=uiscale is bui.UIScale.SMALL,
         )
 
         if uiscale is bui.UIScale.SMALL:
@@ -274,7 +371,7 @@ class InboxWindow(bui.MainWindow):
             self._back_button = bui.buttonwidget(
                 parent=self._root_widget,
                 autoselect=True,
-                position=(50, self._height - 38 + yoffs),
+                position=(50, yoffs - 48),
                 size=(60, 60),
                 scale=0.6,
                 label=bui.charstr(bui.SpecialChar.BACK),
@@ -289,14 +386,12 @@ class InboxWindow(bui.MainWindow):
             parent=self._root_widget,
             position=(
                 self._width * 0.5,
-                self._height
-                - (45 if uiscale is bui.UIScale.SMALL else 20)
-                + yoffs,
+                yoffs - (45 if uiscale is bui.UIScale.SMALL else 30),
             ),
             size=(0, 0),
             h_align='center',
             v_align='center',
-            scale=0.6,
+            scale=0.6 if uiscale is bui.UIScale.SMALL else 0.8,
             text=bui.Lstr(resource='inboxText'),
             maxwidth=200,
             color=bui.app.ui_v1.title_color,
@@ -319,17 +414,13 @@ class InboxWindow(bui.MainWindow):
         self._loading_spinner = bui.spinnerwidget(
             parent=self._root_widget,
             position=(self._width * 0.5, self._height * 0.5),
+            style='bomb',
+            size=48,
         )
         self._scrollwidget = bui.scrollwidget(
             parent=self._root_widget,
-            size=(
-                self._width - 60,
-                self._height - (170 if uiscale is bui.UIScale.SMALL else 80),
-            ),
-            position=(
-                30,
-                (110 if uiscale is bui.UIScale.SMALL else 34) + yoffs,
-            ),
+            size=(scroll_width, scroll_height),
+            position=(self._width * 0.5 - scroll_width * 0.5, scroll_bottom),
             capture_arrows=True,
             simple_culling_v=200,
             claims_left_right=True,
@@ -731,14 +822,6 @@ class InboxWindow(bui.MainWindow):
 
                         section = _TextSection(
                             sub_width=sub_width,
-                            # text=bui.Lstr(
-                            #     translate=(
-                            #         'serverResponses',
-                            #         'You placed #${RANK}' ' in a tournament!',
-                            #         # 'You placed in a tournament!',
-                            #     ),
-                            #     subs=[('${RANK}', str(component.rank))],
-                            # ),
                             text=bui.Lstr(
                                 value='${P}${V}',
                                 subs=[
@@ -750,7 +833,6 @@ class InboxWindow(bui.MainWindow):
                                                 'serverResponses',
                                                 'You placed #${RANK}'
                                                 ' in a tournament!',
-                                                # 'You placed in a tournament!',
                                             ),
                                             subs=[
                                                 ('${RANK}', str(component.rank))
@@ -767,13 +849,6 @@ class InboxWindow(bui.MainWindow):
 
                         section = _TextSection(
                             sub_width=sub_width,
-                            # text=bui.Lstr(
-                            #     value='${P}${V}',
-                            #     subs=[
-                            #         ('${P}', trophy_prefix),
-                            #         ('${V}', tourney_name),
-                            #     ],
-                            # ),
                             text=tourney_name,
                             spacing_top=5,
                             color=(0.7, 0.7, 1.0, 1.0),
@@ -781,20 +856,6 @@ class InboxWindow(bui.MainWindow):
                         )
                         total_height += section.get_height()
                         sections.append(section)
-
-                        # rank_trophy_str = f'#{component.rank}'
-                        # if component.trophy is not None:
-                        #     rank_trophy_str = get_trophy_string(
-                        #         component.trophy
-                        #     )
-                        #     section = _TextSection(
-                        #         sub_width=sub_width,
-                        #         text=rank_trophy_str,
-                        #         spacing_top=10,
-                        #         scale=1.0,
-                        #     )
-                        #     total_height += section.get_height()
-                        #     sections.append(section)
 
                         def _do_tourney_scores(
                             tournament_id: str, sec: _ButtonSection
@@ -816,7 +877,7 @@ class InboxWindow(bui.MainWindow):
                         section = _ButtonSection(
                             sub_width=sub_width,
                             label=bui.Lstr(
-                                translate=('serverResponses', 'Final Standings')
+                                resource='tournamentFinalStandingsText'
                             ),
                             color=color,
                             call=partial(
@@ -832,12 +893,7 @@ class InboxWindow(bui.MainWindow):
                         if component.prizes:
                             section = _TextSection(
                                 sub_width=sub_width,
-                                text=bui.Lstr(
-                                    translate=(
-                                        'serverResponses',
-                                        'Your prize:',
-                                    )
-                                ),
+                                text=bui.Lstr(resource='yourPrizeText'),
                                 spacing_top=6,
                                 color=(1.0, 1.0, 1.0, 0.4),
                                 scale=0.35,
@@ -854,6 +910,19 @@ class InboxWindow(bui.MainWindow):
                             )
                             total_height += section.get_height()
                             sections.append(section)
+
+                    elif ctypeid is idcls.EXPIRE_TIME:
+                        assert isinstance(
+                            component, bacommon.bs.BasicClientUIExpireTime
+                        )
+                        section = _ExpireTimeSection(
+                            sub_width=sub_width,
+                            time=component.time,
+                            spacing_top=component.spacing_top,
+                            spacing_bottom=component.spacing_bottom,
+                        )
+                        total_height += section.get_height()
+                        sections.append(section)
 
                     elif ctypeid is idcls.UNKNOWN:
                         raise RuntimeError('Should not get here.')

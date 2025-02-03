@@ -50,6 +50,31 @@ class ClassicChestAppearance(Enum):
     L5 = 'l5'
     L6 = 'l6'
 
+    @property
+    def pretty_name(self) -> str:
+        """Pretty name for the chest in English."""
+        # pylint: disable=too-many-return-statements
+        cls = type(self)
+
+        if self is cls.UNKNOWN:
+            return 'Unknown Chest'
+        if self is cls.DEFAULT:
+            return 'Chest'
+        if self is cls.L1:
+            return 'L1 Chest'
+        if self is cls.L2:
+            return 'L2 Chest'
+        if self is cls.L3:
+            return 'L3 Chest'
+        if self is cls.L4:
+            return 'L4 Chest'
+        if self is cls.L5:
+            return 'L5 Chest'
+        if self is cls.L6:
+            return 'L6 Chest'
+
+        assert_never(self)
+
 
 @ioprepped
 @dataclass
@@ -147,8 +172,9 @@ class DisplayItem(IOMultiType[DisplayItemTypeID]):
         """Return a string description and subs for the item.
 
         These decriptions are baked into the DisplayItemWrapper and
-        should be accessed from there by the client. This should only be
-        called on the server side when doing said baking.
+        should be accessed from there when available. This allows
+        clients to give descriptions even for newer display items they
+        don't recognize.
         """
         raise NotImplementedError()
 
@@ -246,7 +272,7 @@ class ChestDisplayItem(DisplayItem):
 
     @override
     def get_description(self) -> tuple[str, list[tuple[str, str]]]:
-        return '${TYPE} Chest', [('${TYPE}', self.appearance.name.capitalize())]
+        return self.appearance.pretty_name, []
 
 
 @ioprepped
@@ -435,6 +461,7 @@ class BasicClientUIComponentTypeID(Enum):
     LINK = 'l'
     BS_CLASSIC_TOURNEY_RESULT = 'ct'
     DISPLAY_ITEMS = 'di'
+    EXPIRE_TIME = 'd'
 
 
 class BasicClientUIComponent(IOMultiType[BasicClientUIComponentTypeID]):
@@ -467,6 +494,8 @@ class BasicClientUIComponent(IOMultiType[BasicClientUIComponentTypeID]):
             return BasicClientUIBsClassicTourneyResult
         if type_id is t.DISPLAY_ITEMS:
             return BasicClientUIDisplayItems
+        if type_id is t.EXPIRE_TIME:
+            return BasicClientUIExpireTime
 
         # Important to make sure we provide all types.
         assert_never(type_id)
@@ -568,6 +597,21 @@ class BasicClientUIDisplayItems(BasicClientUIComponent):
     @classmethod
     def get_type_id(cls) -> BasicClientUIComponentTypeID:
         return BasicClientUIComponentTypeID.DISPLAY_ITEMS
+
+
+@ioprepped
+@dataclass
+class BasicClientUIExpireTime(BasicClientUIComponent):
+    """Show expire-time."""
+
+    time: Annotated[datetime.datetime, IOAttrs('d')]
+    spacing_top: Annotated[float, IOAttrs('st', store_default=False)] = 0.0
+    spacing_bottom: Annotated[float, IOAttrs('sb', store_default=False)] = 0.0
+
+    @override
+    @classmethod
+    def get_type_id(cls) -> BasicClientUIComponentTypeID:
+        return BasicClientUIComponentTypeID.EXPIRE_TIME
 
 
 @ioprepped
@@ -818,4 +862,26 @@ class ClientUIActionResponse(Response):
     # User facing error message in the case of errors.
     error_message: Annotated[str | None, IOAttrs('em')]
 
+    effects: Annotated[list[ClientEffect], IOAttrs('fx')]
+
+
+@ioprepped
+@dataclass
+class ScoreSubmitMessage(Message):
+    """Let the server know we got some score in something."""
+
+    score_token: Annotated[str, IOAttrs('t')]
+
+    @override
+    @classmethod
+    def get_response_types(cls) -> list[type[Response] | None]:
+        return [ScoreSubmitResponse]
+
+
+@ioprepped
+@dataclass
+class ScoreSubmitResponse(Response):
+    """Did something to that inbox entry, boss."""
+
+    # Things we should show on our end.
     effects: Annotated[list[ClientEffect], IOAttrs('fx')]
