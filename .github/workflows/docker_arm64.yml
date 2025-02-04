@@ -2,7 +2,9 @@ name: TEST
 
 on:
   push:
-
+    tags:
+    - 'v*'
+    
 jobs:
   release_arm64_docker_gui_image:
     runs-on: ubuntu-24.04-arm
