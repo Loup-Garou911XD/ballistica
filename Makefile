@@ -1216,7 +1216,6 @@ docker-server-debug: assets-cmake
 
 # Build the gui release docker image for arm64
 docker-arm64-gui-release: assets-cmake
-	systemctl start docker
 	$(PCOMMAND) compose_docker_arm64_gui_release
 
 # Build the server release docker image for arm64
