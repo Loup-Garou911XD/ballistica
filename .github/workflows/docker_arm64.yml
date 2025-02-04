@@ -2,8 +2,7 @@ name: TEST
 
 on:
   push:
-    tags:
-    - 'v*'
+
 jobs:
   release_arm64_docker_gui_image:
     runs-on: ubuntu-24.04-arm
@@ -17,7 +16,6 @@ jobs:
       run: make env
     - name: Make the build
       run: |
-        sudo apt install docker.io -y
         make docker-arm64-gui-release
         make docker-save
     - name: Zip the build
