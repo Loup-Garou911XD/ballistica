@@ -37,7 +37,7 @@ class RendererGL::ShaderGL : public Object {
 #if BA_OPENGL_IS_ES
     src_fin = "#version 300 es\n" + src_fin;
 #else
-    src_fin = "#version 150 core\n" + src_fin;
+    src_fin = "#version 300 es\n" + src_fin;
 #endif
 
     const char* s = src_fin.c_str();
