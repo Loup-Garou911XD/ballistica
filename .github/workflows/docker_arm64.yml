@@ -17,7 +17,7 @@ jobs:
       run: make env
     - name: Make the build
       run: |
-        apt install docker.io
+        sudo apt install docker.io -y
         make docker-arm64-gui-release
         make docker-save
     - name: Zip the build
