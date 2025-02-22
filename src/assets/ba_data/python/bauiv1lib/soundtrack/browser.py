@@ -32,7 +32,6 @@ class SoundtrackBrowserWindow(bui.MainWindow):
         uiscale = bui.app.ui_v1.uiscale
         self._width = 1200 if uiscale is bui.UIScale.SMALL else 650
         self._height = 800 if uiscale is bui.UIScale.SMALL else 400
-        # yoffs = -30 if uiscale is bui.UIScale.SMALL else 0
 
         # Do some fancy math to fill all available screen area up to the
         # size of our backing container. This lets us fit to the exact
@@ -85,7 +84,7 @@ class SoundtrackBrowserWindow(bui.MainWindow):
             parent=self._root_widget,
             position=(
                 self._width * 0.5,
-                yoffs - (46 if uiscale is bui.UIScale.SMALL else 35),
+                yoffs - (55 if uiscale is bui.UIScale.SMALL else 35),
             ),
             size=(0, 0),
             maxwidth=300,
