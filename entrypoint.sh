@@ -8,3 +8,4 @@ echo hewllow_worldd
 pwd
 ls -al
 ./ballisticakit_server
+
