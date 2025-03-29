@@ -34,11 +34,9 @@ class RendererGL::ShaderGL : public Object {
       src_fin = "out " BA_GLSL_HIGHP "vec4 " BA_GLSL_FRAGCOLOR ";\n" + src_fin;
     }
 
-#if BA_OPENGL_IS_ES
-    src_fin = "#version 300 es\n" + src_fin;
-#else
-    src_fin = "#version 300 es\n" + src_fin;
-#endif
+
+  src_fin = "#version 300 es\nprecision mediump float;\nprecision mediump sampler2D;\nprecision highp float;" + src_fin;
+
 
     const char* s = src_fin.c_str();
     glShaderSource(shader_, 1, &s, nullptr);
