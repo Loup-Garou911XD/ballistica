@@ -525,22 +525,11 @@ def warm_start_asset_build() -> None:
         )
 
 
-def gen_docs_pdoc() -> None:
-    """Generate pdoc documentation."""
-    from efro.terminal import Clr
-    import batools.docs
-
-    pcommand.disallow_in_batch()
-
-    print(f'{Clr.BLU}Generating documentation...{Clr.RST}')
-    batools.docs.generate_pdoc(projroot=str(pcommand.PROJROOT))
-
-
 def gen_docs_sphinx() -> None:
     """Generate sphinx documentation."""
     import batools.docs
 
-    batools.docs.generate_sphinxdoc()
+    batools.docs.generate_sphinx_docs()
 
 
 def checkenv() -> None:
@@ -704,11 +693,27 @@ def compose_docker_arm64_gui_release() -> None:
     batools.docker.docker_compose(headless_build=False, platform='linux/arm64')
 
 
+def compose_docker_arm64_gui_debug() -> None:
+    """Build the docker image with bombsquad cmake for arm64."""
+    import batools.docker
+
+    batools.docker.docker_compose(
+        headless_build=False, platform='linux/arm64', build_type='Debug'
+    )
+
+
 def compose_docker_arm64_server_release() -> None:
     """Build the docker image with bombsquad cmake server for arm64."""
     import batools.docker
 
     batools.docker.docker_compose(platform='linux/arm64')
+
+
+def compose_docker_arm64_server_debug() -> None:
+    """Build the docker image with bombsquad cmake server for arm64."""
+    import batools.docker
+
+    batools.docker.docker_compose(platform='linux/arm64', build_type='Debug')
 
 
 def save_docker_images() -> None:

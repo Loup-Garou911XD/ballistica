@@ -77,6 +77,7 @@ class ClassicAppSubsystem(babase.AppSubsystem):
         # Classic-specific account state.
         self.remove_ads = False
         self.gold_pass = False
+        self.tokens = 0
         self.chest_dock_full = False
 
         # Main Menu.
@@ -383,8 +384,6 @@ class ClassicAppSubsystem(babase.AppSubsystem):
 
     def getmaps(self, playtype: str) -> list[str]:
         """Return a list of bascenev1.Map types supporting a playtype str.
-
-        Category: **Asset Functions**
 
         Maps supporting a given playtype must provide a particular set of
         features and lend themselves to a certain style of play.
@@ -751,10 +750,7 @@ class ClassicAppSubsystem(babase.AppSubsystem):
         )
 
     def preload_map_preview_media(self) -> None:
-        """Preload media needed for map preview UIs.
-
-        Category: **Asset Functions**
-        """
+        """Preload media needed for map preview UIs."""
         try:
             bauiv1.getmesh('level_select_button_opaque')
             bauiv1.getmesh('level_select_button_transparent')
@@ -857,11 +853,13 @@ class ClassicAppSubsystem(babase.AppSubsystem):
                         )
 
     @staticmethod
-    def run_bs_client_effects(effects: list[bacommon.bs.ClientEffect]) -> None:
+    def run_bs_client_effects(
+        effects: list[bacommon.bs.ClientEffect], delay: float = 0.0
+    ) -> None:
         """Run client effects sent from the master server."""
         from baclassic._clienteffect import run_bs_client_effects
 
-        run_bs_client_effects(effects)
+        run_bs_client_effects(effects, delay=delay)
 
     @staticmethod
     def basic_client_ui_button_label_str(

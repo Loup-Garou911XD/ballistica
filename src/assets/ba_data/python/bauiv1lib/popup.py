@@ -14,9 +14,7 @@ if TYPE_CHECKING:
 
 
 class PopupWindow:
-    """A transient window that positions and scales itself for visibility.
-
-    Category: UI Classes"""
+    """A transient window that pops up from some position."""
 
     def __init__(
         self,
@@ -84,6 +82,10 @@ class PopupWindow:
         y_offs = (
             (focus_position[1] + focus_size[1] * 0.5) - (size[1] * 0.5)
         ) * scale
+
+        # NOTE: We do NOT need to suppress main-window-recreates here
+        # (like regular windows do) since we are always in the overlay
+        # stack and thus aren't affected by main-window recreation.
 
         self.root_widget = bui.containerwidget(
             transition='in_scale',

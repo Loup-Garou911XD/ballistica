@@ -24,17 +24,25 @@ _g_open_voices: list[tuple[float, str, float]] = []
 class ChestWindow(bui.MainWindow):
     """Allows viewing and performing operations on a chest."""
 
+    _HIGHLIGHT_TOKEN_PURCHASES_CONFIG_KEY = (
+        'Highlight Potential Token Purchases'
+    )
+
     def __init__(
         self,
         index: int,
         transition: str | None = 'in_right',
         origin_widget: bui.Widget | None = None,
     ):
+        # pylint: disable=too-many-statements
         self._index = index
+
+        # Get this loading before we need it.
+        self._quote_bubble_tex = bui.gettexture('quoteBubble')
 
         assert bui.app.classic is not None
         uiscale = bui.app.ui_v1.uiscale
-        self._width = 1200 if uiscale is bui.UIScale.SMALL else 650
+        self._width = 1200 if uiscale is bui.UIScale.SMALL else 750
         self._height = 800 if uiscale is bui.UIScale.SMALL else 450
         self._action_in_flight = False
         self._open_now_button: bui.Widget | None = None
@@ -42,8 +50,11 @@ class ChestWindow(bui.MainWindow):
         self._open_now_texts: list[bui.Widget] = []
         self._open_now_images: list[bui.Widget] = []
         self._watch_ad_button: bui.Widget | None = None
+        self._open_me_backing: bui.Widget | None = None
+        self._open_me_widgets: list[bui.Widget] = []
         self._time_string_timer: bui.AppTimer | None = None
         self._time_string_text: bui.Widget | None = None
+        self._open_me_flash_timer: bui.AppTimer | None = None
         self._prizesets: list[bacommon.bs.ChestInfoResponse.Chest.PrizeSet] = []
         self._prizeindex = -1
         self._prizesettxts: dict[int, list[bui.Widget]] = {}
@@ -51,6 +62,8 @@ class ChestWindow(bui.MainWindow):
         self._chestdisplayinfo: baclassic.ChestAppearanceDisplayInfo | None = (
             None
         )
+
+        self._chest_action_ui_pause: bui.RootUIUpdatePause | None = None
 
         # The set of widgets we keep when doing a clear.
         self._core_widgets: list[bui.Widget] = []
@@ -60,7 +73,7 @@ class ChestWindow(bui.MainWindow):
         # screen shape at small ui scale.
         screensize = bui.get_virtual_screen_size()
         scale = (
-            1.8
+            1.6
             if uiscale is bui.UIScale.SMALL
             else 1.1 if uiscale is bui.UIScale.MEDIUM else 0.9
         )
@@ -90,12 +103,6 @@ class ChestWindow(bui.MainWindow):
             # We're affected by screen size only at small ui-scale.
             refresh_on_screen_size_changes=uiscale is bui.UIScale.SMALL,
         )
-
-        # Tell the root-ui to stop updating toolbar values immediately;
-        # this allows it to run animations based on the results of our
-        # chest opening.
-        bui.root_ui_pause_updates()
-        self._root_ui_updates_paused = True
 
         self._title_text = bui.textwidget(
             parent=self._root_widget,
@@ -183,12 +190,6 @@ class ChestWindow(bui.MainWindow):
                 on_response=bui.WeakCall(self._on_chest_info_response),
             )
 
-    def __del__(self) -> None:
-
-        # Make sure UI updates are resumed if we haven't done so.
-        if self._root_ui_updates_paused:
-            bui.root_ui_resume_updates()
-
     @override
     def get_main_window_state(self) -> bui.MainWindowState:
         # Support recreating our window for back/refresh purposes.
@@ -205,7 +206,7 @@ class ChestWindow(bui.MainWindow):
         )
 
     def _update_time_display(self, unlock_time: datetime.datetime) -> None:
-        # Once text disappears, kill our timer.
+        # Once our target text widget disappears, kill our timer.
         if not self._time_string_text:
             self._time_string_timer = None
             return
@@ -244,6 +245,10 @@ class ChestWindow(bui.MainWindow):
         assert self._action_in_flight  # Should be us.
         self._action_in_flight = False
 
+        # Allow the root ui to resume its normal automatic value display
+        # as soon as any animations we kick off here complete.
+        self._chest_action_ui_pause = None
+
         # Communication/local error:
         if isinstance(response, Exception):
             self._error(
@@ -257,38 +262,23 @@ class ChestWindow(bui.MainWindow):
             self._error(bui.Lstr(translate=('serverResponses', response.error)))
             return
 
-        # Show any bundled success message.
-        if response.success_msg is not None:
-            bui.screenmessage(
-                bui.Lstr(translate=('serverResponses', response.success_msg)),
-                color=(0, 1.0, 0),
-            )
-            bui.getsound('cashRegister').play()
-
-        # Show any bundled warning.
-        if response.warning is not None:
-            bui.screenmessage(
-                bui.Lstr(translate=('serverResponses', response.warning)),
-                color=(1, 0.5, 0),
-            )
-            bui.getsound('error').play()
-
-        # If we just paid for something, make a sound accordingly.
-        if bool(False):  # Hmm maybe this feels odd.
-            if response.tokens_charged > 0:
-                bui.getsound('cashRegister').play()
-
+        toffs = 0.0
         # If there's contents listed in the response, show them.
         if response.contents is not None:
-            self._show_chest_contents(response)
+            toffs = self._show_chest_contents(response)
         else:
             # Otherwise we're done here; just close out our UI.
             self.main_window_back()
+
+        # Lastly, run any bundled effects.
+        assert bui.app.classic is not None
+        bui.app.classic.run_bs_client_effects(response.effects, delay=toffs)
 
     def _show_chest_actions(
         self, user_tokens: int, chest: bacommon.bs.ChestInfoResponse.Chest
     ) -> None:
         """Show state for our chest."""
+        # pylint: disable=too-many-statements
         # pylint: disable=too-many-locals
         # pylint: disable=cyclic-import
         from baclassic import (
@@ -322,11 +312,7 @@ class ChestWindow(bui.MainWindow):
         imgsize = 145
         bui.imagewidget(
             parent=self._root_widget,
-            position=(
-                self._width * 0.5 - imgsize * 0.5,
-                # self._height - 223 + self._yoffs,
-                self._chest_yoffs,
-            ),
+            position=(self._width * 0.5 - imgsize * 0.5, self._chest_yoffs),
             color=self._chestdisplayinfo.color,
             size=(imgsize, imgsize),
             texture=bui.gettexture(self._chestdisplayinfo.texclosed),
@@ -347,7 +333,6 @@ class ChestWindow(bui.MainWindow):
                 parent=self._root_widget,
                 position=(
                     self._width * 0.5 - imgsize * 0.4 - lsize * 0.5,
-                    # self._height - 223 + 27.0 + self._yoffs,
                     self._chest_yoffs + 27.0,
                 ),
                 size=(lsize, lsize),
@@ -358,18 +343,27 @@ class ChestWindow(bui.MainWindow):
         if chest.unlock_tokens != 0:
             self._time_string_text = bui.textwidget(
                 parent=self._root_widget,
-                position=(
-                    self._width * 0.5,
-                    # self._height - 85 + self._yoffs
-                    self._yoffs - 85,
-                ),
+                position=(self._width * 0.5, self._yoffs - 85),
                 size=(0, 0),
                 text='',
                 maxwidth=700,
                 scale=0.6,
-                color=(0.6, 1.0, 0.6),
+                color=(0.7, 0.7, 0.83),
                 h_align='center',
                 v_align='center',
+            )
+            bui.textwidget(
+                parent=self._root_widget,
+                position=(self._width * 0.5, self._yoffs - 85 + 18),
+                size=(0, 0),
+                text=bui.Lstr(resource='chests.unlocksInText'),
+                maxwidth=700,
+                scale=0.4,
+                color=(0.7, 0.65, 1, 0.55),
+                h_align='center',
+                v_align='center',
+                flatness=1.0,
+                shadow=1.0,
             )
             self._update_time_display(chest.unlock_time)
             self._time_string_timer = bui.AppTimer(
@@ -549,6 +543,107 @@ class ChestWindow(bui.MainWindow):
 
         self._show_odds(initial_highlighted_row=-1)
 
+        # Show 'open me' tip IF we don't have a gold pass but do have
+        # enough tokens to open the chest now and have not suppressed
+        # the tip.
+        classic = bui.app.classic
+        assert classic is not None
+        if (
+            not classic.gold_pass
+            and chest.unlock_tokens > 0
+            and user_tokens >= chest.unlock_tokens
+            and bui.app.config.resolve(
+                self._HIGHLIGHT_TOKEN_PURCHASES_CONFIG_KEY
+            )
+        ):
+
+            open_me_x = self._width * 0.5 - 210
+            open_me_y = self._yoffs - 60
+            self._open_me_backing = bui.imagewidget(
+                parent=self._root_widget,
+                position=(open_me_x - 125, open_me_y - 226),
+                color=(0, 1.0, 0.3),
+                opacity=0.3,
+                size=(270, 270),
+                texture=self._quote_bubble_tex,
+            )
+            self._open_me_flash_timer = bui.AppTimer(
+                0.05,
+                repeat=True,
+                call=bui.WeakCall(self._open_me_backing_update),
+            )
+            self._open_me_widgets.clear()
+            self._open_me_widgets.append(self._open_me_backing)
+            self._open_me_widgets.append(
+                bui.textwidget(
+                    parent=self._root_widget,
+                    position=(open_me_x, open_me_y - 40),
+                    size=(0, 0),
+                    text=bui.Lstr(
+                        value='*${A}',
+                        subs=[('${A}', bui.Lstr(resource='openMeText'))],
+                    ),
+                    # text=bui.Lstr(resource='openMeText'),
+                    maxwidth=175,
+                    scale=0.7,
+                    color=(0, 1.0, 0.7, 1),
+                    h_align='center',
+                    v_align='center',
+                    flatness=0.8,
+                    shadow=0.2,
+                )
+            )
+            self._open_me_widgets.append(
+                bui.textwidget(
+                    parent=self._root_widget,
+                    position=(open_me_x, open_me_y - 79),
+                    size=(0, 0),
+                    text=bui.Lstr(resource='tokens.openNowDescriptionText'),
+                    maxwidth=175,
+                    max_height=55,
+                    scale=0.55,
+                    color=(0, 1.0, 0.7, 1),
+                    h_align='center',
+                    v_align='center',
+                    flatness=1.0,
+                    shadow=0.2,
+                )
+            )
+            btn = bui.buttonwidget(
+                parent=self._root_widget,
+                position=(open_me_x - 70, open_me_y - 140),
+                label=bui.Lstr(resource='stopRemindingMeText'),
+                size=(140, 30),
+                textcolor=(0.0, 1.0, 0.7),
+                text_scale=0.5,
+                color=(0.0, 0.8, 0.5),
+                autoselect=True,
+                text_flatness=1.0,
+                on_activate_call=bui.WeakCall(self._stop_showing_open_me_press),
+            )
+            # Avoid depth issues with the quote-bubble image.
+            bui.widget(edit=btn, depth_range=(0.1, 1.0))
+            self._open_me_widgets.append(btn)
+
+    def _open_me_backing_update(self) -> None:
+        # Once our target widget disappears, kill our timer.
+        if not self._open_me_backing:
+            self._open_me_flash_timer = None
+            return
+
+        mult = 1.0 + 0.06 * math.sin(bui.apptime() * 16.0)
+        bui.imagewidget(
+            edit=self._open_me_backing,
+            color=(0, mult, 0.4 * mult),
+        )
+
+    def _stop_showing_open_me_press(self) -> None:
+        for widget in self._open_me_widgets:
+            widget.delete(ignore_missing=True)
+
+        bui.app.config[self._HIGHLIGHT_TOKEN_PURCHASES_CONFIG_KEY] = False
+        bui.app.config.apply_and_commit()
+
     def _highlight_odds_row(self, row: int, extra: bool = False) -> None:
 
         for rindex, imgs in self._prizesetimgs.items():
@@ -725,6 +820,12 @@ class ChestWindow(bui.MainWindow):
             return
 
         self._action_in_flight = True
+
+        # Pause implicit root-ui updates at least until we're done with
+        # this message, as we might want to explicitly animate stuff from
+        # the results and don't want live values to jump the gun.
+        self._chest_action_ui_pause = bui.RootUIUpdatePause()
+
         with plus.accounts.primary:
             plus.cloud.send_message_cb(
                 bacommon.bs.ChestActionMessage(
@@ -791,6 +892,12 @@ class ChestWindow(bui.MainWindow):
             return
 
         self._action_in_flight = True
+
+        # Pause implicit root-ui updates at least until we're done with
+        # this message, as we might want to explicitly animate stuff from
+        # the results and don't want live values to jump the gun.
+        self._chest_action_ui_pause = bui.RootUIUpdatePause()
+
         with plus.accounts.primary:
             plus.cloud.send_message_cb(
                 bacommon.bs.ChestActionMessage(
@@ -831,14 +938,14 @@ class ChestWindow(bui.MainWindow):
 
     def _show_chest_contents(
         self, response: bacommon.bs.ChestActionResponse
-    ) -> None:
+    ) -> float:
         # pylint: disable=too-many-locals
 
         from baclassic import show_display_item
 
         # No-op if our ui is dead.
         if not self._root_widget:
-            return
+            return 0.0
 
         assert response.contents is not None
 
@@ -985,6 +1092,10 @@ class ChestWindow(bui.MainWindow):
                 toffs2 -= amt
                 amt *= 1.05 * random.uniform(0.9, 1.1)
                 i = (i - 1) % len(self._prizesets)
+
+        # Let the caller know how long we'll take in case they want to
+        # schedule stuff after.
+        return toffs + tincr
 
     def _show_chest_opening(self) -> None:
 

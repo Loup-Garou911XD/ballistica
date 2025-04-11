@@ -1,4 +1,30 @@
-### 1.7.37 (build 22288, api 9, 2025-02-21)
+### 1.7.39 (build 22352, api 9, 2025-04-06)
+- Lots of work on sphinx documentation. Docs are now generated for both runtime
+  and tools packages. Removed the old pdoc docs generation path since sphinx is
+  working quite well and gives us lots of room to grow, and also since we can't
+  really support both (docstrings need to be formatted to play nice with one or
+  the other). Big thanks to Dliwk though for the old pdoc setup which got us to
+  this point though.
+- The `babase.App.State` class is now `babase.AppState`.
+- Removed `babase.print_exception()`. This has been mostly unused for a long
+  time. Anything still using it should use `logging.exception()` instead.
+- Removed `babase.print_error()`. This has also largely been unused for a long
+  time. Anything still using it should use `logging.error()` instead.
+- (build 22346) Hardened against some potential malformed-packet attacks. If you
+  find someone is still able to crash your server by sending invalid data,
+  please let me know.
+- Added highlights to show players when they have unclaimed chests in their
+  inbox or chests that can be opened.
+  
+### 1.7.38 (build 22318, api 9, 2025-03-20)
+- Added animations for reducing chest wait times or gaining tickets or tokens
+- Made MainWindow auto-recreate smarter. If something such as text input or a
+  popup window is suppressing main-window-auto-recreate, it'll now do a single
+  recreate once the suppression ends.
+- (build 22313) Fixed a possible client crash due to uninitialized memory when
+  handling `BA_MESSAGE_HOST_INFO` data.
+  
+### 1.7.37 (build 22304, api 9, 2025-03-10)
 - Bumping api version to 9. As you'll see below, there's some UI changes that
   will require a bit of work for any UI mods to adapt to. If your mods don't
   touch UI stuff at all you can simply bump your api version and call it a day.
@@ -228,6 +254,10 @@
   while onscreen-keyboards are present. This works around an issue where text
   editing on Android could break due to on-screen-keyboards causing screen
   resizes which kill the text-widgets they target.
+- (build 22300) There is now a 'Secure V1 Connections' option in account
+  settings on ballistica.net which should prevent V1 account spoofing attacks
+  when enabled. The downside is that clients older than build 22300 will no
+  longer be able to access the account while that setting is enabled.
 
 ### 1.7.36 (build 21944, api 8, 2024-07-26)
 - Wired up Tokens, BombSquad's new purchasable currency. The first thing these

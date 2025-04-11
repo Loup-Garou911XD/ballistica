@@ -97,7 +97,6 @@ from batools.pcommands import (
     efrocache_update,
     efrocache_get,
     warm_start_asset_build,
-    gen_docs_pdoc,
     gen_docs_sphinx,
     checkenv,
     prefab_platform,
@@ -109,7 +108,9 @@ from batools.pcommands import (
     compose_docker_server_release,
     compose_docker_server_debug,
     compose_docker_arm64_gui_release,
+    compose_docker_arm64_gui_debug,
     compose_docker_arm64_server_release,
+    compose_docker_arm64_server_debug,
     save_docker_images,
     remove_docker_images,
     make_prefab,
@@ -144,6 +145,7 @@ from batools.pcommands2 import (
     get_modern_make,
     asset_package_resolve,
     asset_package_assemble,
+    cst_test,
 )
 
 # pylint: enable=unused-import

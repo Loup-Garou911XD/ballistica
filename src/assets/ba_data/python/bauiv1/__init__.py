@@ -21,6 +21,7 @@ from babase import (
     add_clean_frame_callback,
     allows_ticket_sales,
     app,
+    App,
     AppIntent,
     AppIntentDefault,
     AppIntentExec,
@@ -28,6 +29,7 @@ from babase import (
     appname,
     appnameupper,
     apptime,
+    AppState,
     AppTime,
     apptimer,
     AppTimer,
@@ -137,6 +139,7 @@ from bauiv1._uitypes import (
     BasicMainWindowState,
     uicleanupcheck,
     MainWindow,
+    RootUIUpdatePause,
 )
 from bauiv1._appsubsystem import UIV1AppSubsystem
 
@@ -144,6 +147,7 @@ __all__ = [
     'add_clean_frame_callback',
     'allows_ticket_sales',
     'app',
+    'App',
     'AppIntent',
     'AppIntentDefault',
     'AppIntentExec',
@@ -151,6 +155,7 @@ __all__ = [
     'appname',
     'appnameupper',
     'appnameupper',
+    'AppState',
     'apptime',
     'AppTime',
     'apptimer',
@@ -229,6 +234,7 @@ __all__ = [
     'request_permission',
     'root_ui_pause_updates',
     'root_ui_resume_updates',
+    'RootUIUpdatePause',
     'rowwidget',
     'safecolor',
     'screenmessage',

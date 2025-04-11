@@ -2,10 +2,10 @@
 #
 """Common shared Ballistica components.
 
-For modding purposes, this package should generally not be used directly.
-Instead one should use purpose-built packages such as bascenev1 or bauiv1
-which themselves import various functionality from here and reexpose it in
-a more focused way.
+For modding purposes, this package should generally not be used
+directly. Instead one should use purpose-built packages such as
+:mod:`bascenev1` or :mod:`bauiv1` which themselves import various
+functionality from here and reexpose it in a more focused way.
 """
 # pylint: disable=redefined-builtin
 
@@ -35,6 +35,7 @@ from _babase import (
     fullscreen_control_get,
     fullscreen_control_key_shortcut,
     fullscreen_control_set,
+    can_display_chars,
     charstr,
     clipboard_get_text,
     clipboard_has_text,
@@ -64,7 +65,6 @@ from _babase import (
     get_virtual_screen_size,
     getsimplesound,
     has_user_run_commands,
-    have_chars,
     have_permission,
     in_logic_thread,
     in_main_menu,
@@ -123,7 +123,7 @@ from _babase import (
 )
 
 from babase._accountv2 import AccountV2Handle, AccountV2Subsystem
-from babase._app import App
+from babase._app import App, AppState
 from babase._appconfig import commit_app_config
 from babase._appintent import AppIntent, AppIntentDefault, AppIntentExec
 from babase._appmode import AppMode
@@ -135,7 +135,7 @@ from babase._apputils import (
     is_browser_likely_available,
     garbage_collect,
     get_remote_app_name,
-    AppHealthMonitor,
+    AppHealthSubsystem,
     utc_now_cloud,
 )
 from babase._cloud import CloudSubscription
@@ -146,8 +146,6 @@ from babase._devconsole import (
 )
 from babase._emptyappmode import EmptyAppMode
 from babase._error import (
-    print_exception,
-    print_error,
     ContextError,
     NotFoundError,
     PlayerNotFoundError,
@@ -164,7 +162,6 @@ from babase._error import (
     DelegateNotFoundError,
 )
 from babase._general import (
-    utf8_all,
     DisplayTime,
     AppTime,
     WeakCall,
@@ -189,11 +186,14 @@ from babase._mgen.enums import (
 )
 from babase._math import normalized_color, is_point_in_box, vec3validate
 from babase._meta import MetadataSubsystem
-from babase._net import get_ip_address_type, DEFAULT_REQUEST_TIMEOUT_SECONDS
+from babase._net import (
+    get_ip_address_type,
+    DEFAULT_REQUEST_TIMEOUT_SECONDS,
+    NetworkSubsystem,
+)
 from babase._plugin import PluginSpec, Plugin, PluginSubsystem
 from babase._stringedit import StringEditAdapter, StringEditSubsystem
 from babase._text import timestring
-
 
 _babase.app = app = App()
 app.postinit()
@@ -207,14 +207,14 @@ __all__ = [
     'add_clean_frame_callback',
     'android_get_external_files_dir',
     'app',
-    'app',
     'App',
     'AppConfig',
-    'AppHealthMonitor',
+    'AppHealthSubsystem',
     'AppIntent',
     'AppIntentDefault',
     'AppIntentExec',
     'AppMode',
+    'AppState',
     'app_instance_uuid',
     'applog',
     'appname',
@@ -233,6 +233,7 @@ __all__ = [
     'fullscreen_control_get',
     'fullscreen_control_key_shortcut',
     'fullscreen_control_set',
+    'can_display_chars',
     'charstr',
     'clipboard_get_text',
     'clipboard_has_text',
@@ -279,7 +280,6 @@ __all__ = [
     'getsimplesound',
     'handle_leftover_v1_cloud_log_file',
     'has_user_run_commands',
-    'have_chars',
     'have_permission',
     'in_logic_thread',
     'in_main_menu',
@@ -313,6 +313,7 @@ __all__ = [
     'native_review_request',
     'native_review_request_supported',
     'native_stack_trace',
+    'NetworkSubsystem',
     'NodeNotFoundError',
     'normalized_color',
     'NotFoundError',
@@ -327,8 +328,6 @@ __all__ = [
     'Plugin',
     'PluginSubsystem',
     'PluginSpec',
-    'print_error',
-    'print_exception',
     'print_load_info',
     'push_back_press',
     'pushcall',
@@ -367,7 +366,6 @@ __all__ = [
     'user_agent_string',
     'user_ran_commands',
     'utc_now_cloud',
-    'utf8_all',
     'Vec3',
     'vec3validate',
     'verify_object_death',

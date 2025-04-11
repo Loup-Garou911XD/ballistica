@@ -32,8 +32,6 @@ if TYPE_CHECKING:
 class UIV1AppSubsystem(babase.AppSubsystem):
     """Consolidated UI functionality for the app.
 
-    Category: **App Classes**
-
     To use this class, access the single instance of it at 'ba.app.ui'.
     """
 
@@ -86,9 +84,12 @@ class UIV1AppSubsystem(babase.AppSubsystem):
         self.heading_color = (0.72, 0.7, 0.75)
         self.infotextcolor = (0.7, 0.9, 0.7)
 
-        self._last_win_recreate_size: tuple[float, float] | None = None
-        self._last_screen_size_win_recreate_time: float | None = None
-        self._screen_size_win_recreate_timer: babase.AppTimer | None = None
+        self.window_auto_recreate_suppress_count = 0
+
+        self._last_win_recreate_screen_size: tuple[float, float] | None = None
+        self._last_win_recreate_uiscale: bauiv1.UIScale | None = None
+        self._last_win_recreate_time: float | None = None
+        self._win_recreate_timer: babase.AppTimer | None = None
 
         # Elements in our root UI will call anything here when
         # activated.
@@ -195,6 +196,15 @@ class UIV1AppSubsystem(babase.AppSubsystem):
         # pylint: disable=too-many-branches
         # pylint: disable=too-many-statements
         from bauiv1._uitypes import MainWindow
+
+        # If we haven't grabbed initial uiscale or screen size for recreate
+        # comparision purposes, this is a good time to do so.
+        if self._last_win_recreate_screen_size is None:
+            self._last_win_recreate_screen_size = (
+                babase.get_virtual_screen_size()
+            )
+        if self._last_win_recreate_uiscale is None:
+            self._last_win_recreate_uiscale = babase.app.ui_v1.uiscale
 
         # Encourage migration to the new higher level nav calls.
         if not suppress_warning:
@@ -398,6 +408,23 @@ class UIV1AppSubsystem(babase.AppSubsystem):
             suppress_warning=True,
         )
 
+    def should_suppress_window_recreates(self) -> bool:
+        """Should we avoid auto-recreating windows at the current time?"""
+
+        # This is slightly hack-ish and ideally we can get to the point
+        # where we never need this and can remove it.
+
+        # Currently string-edits grab a weak-ref to the exact text
+        # widget they're targeting. So we need to suppress recreates
+        # while edits are in progress. Ideally we should change that to
+        # use ids or something that would survive a recreate.
+        if babase.app.stringedit.active_adapter() is not None:
+            return True
+
+        # Suppress if anything else is requesting suppression (such as
+        # generic Windows that don't handle being recreated).
+        return babase.app.ui_v1.window_auto_recreate_suppress_count > 0
+
     @override
     def on_ui_scale_change(self) -> None:
         # Update our stored UIScale.
@@ -406,74 +433,82 @@ class UIV1AppSubsystem(babase.AppSubsystem):
         # Update native bits (allow root widget to rebuild itself/etc.)
         _bauiv1.on_ui_scale_change()
 
-        # Lastly, if we have a main window, recreate it to pick up the
-        # new UIScale/etc.
-        mainwindow = self.get_main_window()
-        if mainwindow is not None:
-            winstate = self.save_main_window_state(mainwindow)
-            self.clear_main_window(transition='instant')
-            self.restore_main_window_state(winstate)
-
-            # Store the size we created this for to avoid redundant
-            # future recreates.
-            self._last_win_recreate_size = babase.get_virtual_screen_size()
+        self._schedule_main_win_recreate()
 
     @override
     def on_screen_size_change(self) -> None:
 
-        # HACK-ish: We currently ignore all resizes that happen while a
-        # string-edit is in progress. Otherwise the target text-widget
-        # of the edit generally dies during window recreates and the
-        # edit doesn't work. And it seems that in some cases on Android
-        # bringing up the on-screen keyboard results in the screen size
-        # changing due to nav-bars being shown or whatnot which makes
-        # the problem worse.
-        if babase.app.stringedit.active_adapter() is not None:
+        self._schedule_main_win_recreate()
+
+    def _schedule_main_win_recreate(self) -> None:
+
+        # If there is a timer set already, do nothing.
+        if self._win_recreate_timer is not None:
             return
 
         # Recreating a MainWindow is a kinda heavy thing and it doesn't
         # seem like we should be doing it at 120hz during a live window
-        # resize, so let's limit the max rate we do it.
+        # resize, so let's limit the max rate we do it. We also use the
+        # same mechanism to defer window recreates while anything is
+        # suppressing them.
         now = time.monotonic()
 
         # Up to 4 refreshes per second seems reasonable.
         interval = 0.25
 
-        # If there is a timer set already, do nothing.
-        if self._screen_size_win_recreate_timer is not None:
-            return
-
         # Ok; there's no timer. Schedule one.
         till_update = (
-            0.0
-            if self._last_screen_size_win_recreate_time is None
-            else max(
-                0.0, self._last_screen_size_win_recreate_time + interval - now
+            interval
+            if self.should_suppress_window_recreates()
+            else (
+                0.0
+                if self._last_win_recreate_time is None
+                else max(0.0, self._last_win_recreate_time + interval - now)
             )
         )
-        self._screen_size_win_recreate_timer = babase.AppTimer(
-            till_update, self._do_screen_size_win_recreate
+        self._win_recreate_timer = babase.AppTimer(
+            till_update, self._do_main_win_recreate
         )
 
-    def _do_screen_size_win_recreate(self) -> None:
-        self._last_screen_size_win_recreate_time = time.monotonic()
-        self._screen_size_win_recreate_timer = None
+    def _do_main_win_recreate(self) -> None:
+        self._last_win_recreate_time = time.monotonic()
+        self._win_recreate_timer = None
 
-        # Avoid recreating if we're already at this size. This prevents
-        # a redundant recreate when ui scale changes.
-        virtual_screen_size = babase.get_virtual_screen_size()
-        if virtual_screen_size == self._last_win_recreate_size:
+        # If win-recreates are currently suppressed, just kick off
+        # another timer. We'll do our actual thing once suppression
+        # finally ends.
+        if self.should_suppress_window_recreates():
+            self._schedule_main_win_recreate()
             return
 
         mainwindow = self.get_main_window()
-        if (
-            mainwindow is not None
-            and mainwindow.refreshes_on_screen_size_changes
-        ):
-            winstate = self.save_main_window_state(mainwindow)
-            self.clear_main_window(transition='instant')
-            self.restore_main_window_state(winstate)
 
-            # Store the size we created this for to avoid redundant
-            # future recreates.
-            self._last_win_recreate_size = virtual_screen_size
+        # Can't recreate what doesn't exist.
+        if mainwindow is None:
+            return
+
+        virtual_screen_size = babase.get_virtual_screen_size()
+        uiscale = babase.app.ui_v1.uiscale
+
+        # These should always get actual values when a main-window is
+        # assigned so should never still be None here.
+        assert self._last_win_recreate_uiscale is not None
+        assert self._last_win_recreate_screen_size is not None
+
+        # If uiscale hasn't changed and our screen-size hasn't either
+        # (or it has but we don't care) then we're done.
+        if uiscale is self._last_win_recreate_uiscale and (
+            virtual_screen_size == self._last_win_recreate_screen_size
+            or not mainwindow.refreshes_on_screen_size_changes
+        ):
+            return
+
+        # Do the recreate.
+        winstate = self.save_main_window_state(mainwindow)
+        self.clear_main_window(transition='instant')
+        self.restore_main_window_state(winstate)
+
+        # Store the size we created this for to avoid redundant
+        # future recreates.
+        self._last_win_recreate_uiscale = uiscale
+        self._last_win_recreate_screen_size = virtual_screen_size

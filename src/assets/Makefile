@@ -356,6 +356,7 @@ SCRIPT_TARGETS_PY_PUBLIC = \
   $(BUILD_DIR)/ba_data/python/bauiv1lib/colorpicker.py \
   $(BUILD_DIR)/ba_data/python/bauiv1lib/config.py \
   $(BUILD_DIR)/ba_data/python/bauiv1lib/confirm.py \
+  $(BUILD_DIR)/ba_data/python/bauiv1lib/connect.py \
   $(BUILD_DIR)/ba_data/python/bauiv1lib/connectivity.py \
   $(BUILD_DIR)/ba_data/python/bauiv1lib/coop/__init__.py \
   $(BUILD_DIR)/ba_data/python/bauiv1lib/coop/browser.py \
@@ -640,6 +641,7 @@ SCRIPT_TARGETS_PYC_PUBLIC = \
   $(BUILD_DIR)/ba_data/python/bauiv1lib/__pycache__/colorpicker.cpython-312.opt-1.pyc \
   $(BUILD_DIR)/ba_data/python/bauiv1lib/__pycache__/config.cpython-312.opt-1.pyc \
   $(BUILD_DIR)/ba_data/python/bauiv1lib/__pycache__/confirm.cpython-312.opt-1.pyc \
+  $(BUILD_DIR)/ba_data/python/bauiv1lib/__pycache__/connect.cpython-312.opt-1.pyc \
   $(BUILD_DIR)/ba_data/python/bauiv1lib/__pycache__/connectivity.cpython-312.opt-1.pyc \
   $(BUILD_DIR)/ba_data/python/bauiv1lib/coop/__pycache__/__init__.cpython-312.opt-1.pyc \
   $(BUILD_DIR)/ba_data/python/bauiv1lib/coop/__pycache__/browser.cpython-312.opt-1.pyc \
@@ -749,10 +751,12 @@ SCRIPT_TARGETS_PY_PUBLIC_TOOLS = \
   $(BUILD_DIR)/ba_data/python/bacommon/bs.py \
   $(BUILD_DIR)/ba_data/python/bacommon/build.py \
   $(BUILD_DIR)/ba_data/python/bacommon/cloud.py \
+  $(BUILD_DIR)/ba_data/python/bacommon/locale.py \
   $(BUILD_DIR)/ba_data/python/bacommon/loggercontrol.py \
   $(BUILD_DIR)/ba_data/python/bacommon/logging.py \
   $(BUILD_DIR)/ba_data/python/bacommon/login.py \
   $(BUILD_DIR)/ba_data/python/bacommon/net.py \
+  $(BUILD_DIR)/ba_data/python/bacommon/securedata.py \
   $(BUILD_DIR)/ba_data/python/bacommon/servermanager.py \
   $(BUILD_DIR)/ba_data/python/bacommon/transfer.py \
   $(BUILD_DIR)/ba_data/python/bacommon/workspace/__init__.py \
@@ -791,10 +795,12 @@ SCRIPT_TARGETS_PYC_PUBLIC_TOOLS = \
   $(BUILD_DIR)/ba_data/python/bacommon/__pycache__/bs.cpython-312.opt-1.pyc \
   $(BUILD_DIR)/ba_data/python/bacommon/__pycache__/build.cpython-312.opt-1.pyc \
   $(BUILD_DIR)/ba_data/python/bacommon/__pycache__/cloud.cpython-312.opt-1.pyc \
+  $(BUILD_DIR)/ba_data/python/bacommon/__pycache__/locale.cpython-312.opt-1.pyc \
   $(BUILD_DIR)/ba_data/python/bacommon/__pycache__/loggercontrol.cpython-312.opt-1.pyc \
   $(BUILD_DIR)/ba_data/python/bacommon/__pycache__/logging.cpython-312.opt-1.pyc \
   $(BUILD_DIR)/ba_data/python/bacommon/__pycache__/login.cpython-312.opt-1.pyc \
   $(BUILD_DIR)/ba_data/python/bacommon/__pycache__/net.cpython-312.opt-1.pyc \
+  $(BUILD_DIR)/ba_data/python/bacommon/__pycache__/securedata.cpython-312.opt-1.pyc \
   $(BUILD_DIR)/ba_data/python/bacommon/__pycache__/servermanager.cpython-312.opt-1.pyc \
   $(BUILD_DIR)/ba_data/python/bacommon/__pycache__/transfer.cpython-312.opt-1.pyc \
   $(BUILD_DIR)/ba_data/python/bacommon/workspace/__pycache__/__init__.cpython-312.opt-1.pyc \
@@ -5928,6 +5934,7 @@ TEX2D_DDS_TARGETS = \
   $(BUILD_DIR)/ba_data/textures/powerupSpeed.dds \
   $(BUILD_DIR)/ba_data/textures/powerupStickyBombs.dds \
   $(BUILD_DIR)/ba_data/textures/puckColor.dds \
+  $(BUILD_DIR)/ba_data/textures/quoteBubble.dds \
   $(BUILD_DIR)/ba_data/textures/rampageBGColor.dds \
   $(BUILD_DIR)/ba_data/textures/rampageBGColor2.dds \
   $(BUILD_DIR)/ba_data/textures/rampageLevelColor.dds \
@@ -6355,6 +6362,7 @@ TEX2D_PVR_TARGETS = \
   $(BUILD_DIR)/ba_data/textures/powerupSpeed.pvr \
   $(BUILD_DIR)/ba_data/textures/powerupStickyBombs.pvr \
   $(BUILD_DIR)/ba_data/textures/puckColor.pvr \
+  $(BUILD_DIR)/ba_data/textures/quoteBubble.pvr \
   $(BUILD_DIR)/ba_data/textures/rampageBGColor.pvr \
   $(BUILD_DIR)/ba_data/textures/rampageBGColor2.pvr \
   $(BUILD_DIR)/ba_data/textures/rampageLevelColor.pvr \
@@ -6782,6 +6790,7 @@ TEX2D_KTX_TARGETS = \
   $(BUILD_DIR)/ba_data/textures/powerupSpeed.ktx \
   $(BUILD_DIR)/ba_data/textures/powerupStickyBombs.ktx \
   $(BUILD_DIR)/ba_data/textures/puckColor.ktx \
+  $(BUILD_DIR)/ba_data/textures/quoteBubble.ktx \
   $(BUILD_DIR)/ba_data/textures/rampageBGColor.ktx \
   $(BUILD_DIR)/ba_data/textures/rampageBGColor2.ktx \
   $(BUILD_DIR)/ba_data/textures/rampageLevelColor.ktx \
@@ -7209,6 +7218,7 @@ TEX2D_PREVIEW_PNG_TARGETS = \
   $(BUILD_DIR)/ba_data/textures/powerupSpeed_preview.png \
   $(BUILD_DIR)/ba_data/textures/powerupStickyBombs_preview.png \
   $(BUILD_DIR)/ba_data/textures/puckColor_preview.png \
+  $(BUILD_DIR)/ba_data/textures/quoteBubble_preview.png \
   $(BUILD_DIR)/ba_data/textures/rampageBGColor2_preview.png \
   $(BUILD_DIR)/ba_data/textures/rampageBGColor_preview.png \
   $(BUILD_DIR)/ba_data/textures/rampageLevelColor_preview.png \

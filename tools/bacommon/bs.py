@@ -13,6 +13,12 @@ from efro.util import pairs_to_flat
 from efro.dataclassio import ioprepped, IOAttrs, IOMultiType
 from efro.message import Message, Response
 
+# Token counts for our various packs.
+TOKENS1_COUNT = 50
+TOKENS2_COUNT = 500
+TOKENS3_COUNT = 1200
+TOKENS4_COUNT = 2600
+
 
 @ioprepped
 @dataclass
@@ -89,7 +95,9 @@ class ClassicAccountLiveData:
             ClassicChestAppearance,
             IOAttrs('a', enum_fallback=ClassicChestAppearance.UNKNOWN),
         ]
+        create_time: Annotated[datetime.datetime, IOAttrs('c')]
         unlock_time: Annotated[datetime.datetime, IOAttrs('t')]
+        unlock_tokens: Annotated[int, IOAttrs('k')]
         ad_allow_time: Annotated[datetime.datetime | None, IOAttrs('at')]
 
     class LeagueType(Enum):
@@ -119,6 +127,7 @@ class ClassicAccountLiveData:
 
     inbox_count: Annotated[int, IOAttrs('ibc')]
     inbox_count_is_max: Annotated[bool, IOAttrs('ibcm')]
+    inbox_contains_prize: Annotated[bool, IOAttrs('icp')]
 
     chests: Annotated[dict[str, Chest], IOAttrs('c')]
 
@@ -339,64 +348,6 @@ class ChestInfoResponse(Response):
 
     chest: Annotated[Chest | None, IOAttrs('c')]
     user_tokens: Annotated[int | None, IOAttrs('t')]
-
-
-@ioprepped
-@dataclass
-class ChestActionMessage(Message):
-    """Request action about a chest."""
-
-    class Action(Enum):
-        """Types of actions we can request."""
-
-        # Unlocking (for free or with tokens).
-        UNLOCK = 'u'
-
-        # Watched an ad to reduce wait.
-        AD = 'ad'
-
-    action: Annotated[Action, IOAttrs('a')]
-
-    # Tokens we are paying (only applies to unlock).
-    token_payment: Annotated[int, IOAttrs('t')]
-
-    chest_id: Annotated[str, IOAttrs('i')]
-
-    @override
-    @classmethod
-    def get_response_types(cls) -> list[type[Response] | None]:
-        return [ChestActionResponse]
-
-
-@ioprepped
-@dataclass
-class ChestActionResponse(Response):
-    """Here's the results of that action you asked for, boss."""
-
-    # Tokens that were actually charged.
-    tokens_charged: Annotated[int, IOAttrs('t')] = 0
-
-    # If present, signifies the chest has been opened and we should show
-    # the user this stuff that was in it.
-    contents: Annotated[list[DisplayItemWrapper] | None, IOAttrs('c')] = None
-
-    # If contents are present, which of the chest's prize-sets they
-    # represent.
-    prizeindex: Annotated[int, IOAttrs('i')] = 0
-
-    # Printable error if something goes wrong.
-    error: Annotated[str | None, IOAttrs('e')] = None
-
-    # Printable warning. Shown in orange with an error sound. Does not
-    # mean the action failed; only that there's something to tell the
-    # users such as 'It looks like you are faking ad views; stop it or
-    # you won't have ad options anymore.'
-    warning: Annotated[str | None, IOAttrs('w')] = None
-
-    # Printable success message. Shown in green with a cash-register
-    # sound. Can be used for things like successful wait reductions via
-    # ad views.
-    success_msg: Annotated[str | None, IOAttrs('s')] = None
 
 
 class ClientUITypeID(Enum):
@@ -717,6 +668,9 @@ class ClientEffectTypeID(Enum):
     SCREEN_MESSAGE = 'm'
     SOUND = 's'
     DELAY = 'd'
+    CHEST_WAIT_TIME_ANIMATION = 't'
+    TICKETS_ANIMATION = 'ta'
+    TOKENS_ANIMATION = 'toa'
 
 
 class ClientEffect(IOMultiType[ClientEffectTypeID]):
@@ -738,6 +692,7 @@ class ClientEffect(IOMultiType[ClientEffectTypeID]):
     def get_type(cls, type_id: ClientEffectTypeID) -> type[ClientEffect]:
         """Return the subclass for each of our type-ids."""
         # pylint: disable=cyclic-import
+        # pylint: disable=too-many-return-statements
 
         t = ClientEffectTypeID
         if type_id is t.UNKNOWN:
@@ -748,6 +703,12 @@ class ClientEffect(IOMultiType[ClientEffectTypeID]):
             return ClientEffectSound
         if type_id is t.DELAY:
             return ClientEffectDelay
+        if type_id is t.CHEST_WAIT_TIME_ANIMATION:
+            return ClientEffectChestWaitTimeAnimation
+        if type_id is t.TICKETS_ANIMATION:
+            return ClientEffectTicketsAnimation
+        if type_id is t.TOKENS_ANIMATION:
+            return ClientEffectTokensAnimation
 
         # Important to make sure we provide all types.
         assert_never(type_id)
@@ -807,6 +768,52 @@ class ClientEffectSound(ClientEffect):
     @classmethod
     def get_type_id(cls) -> ClientEffectTypeID:
         return ClientEffectTypeID.SOUND
+
+
+@ioprepped
+@dataclass
+class ClientEffectChestWaitTimeAnimation(ClientEffect):
+    """Animate chest wait time changing."""
+
+    chestid: Annotated[str, IOAttrs('c')]
+    duration: Annotated[float, IOAttrs('u')]
+    startvalue: Annotated[datetime.datetime, IOAttrs('o')]
+    endvalue: Annotated[datetime.datetime, IOAttrs('n')]
+
+    @override
+    @classmethod
+    def get_type_id(cls) -> ClientEffectTypeID:
+        return ClientEffectTypeID.CHEST_WAIT_TIME_ANIMATION
+
+
+@ioprepped
+@dataclass
+class ClientEffectTicketsAnimation(ClientEffect):
+    """Animate tickets count."""
+
+    duration: Annotated[float, IOAttrs('u')]
+    startvalue: Annotated[int, IOAttrs('s')]
+    endvalue: Annotated[int, IOAttrs('e')]
+
+    @override
+    @classmethod
+    def get_type_id(cls) -> ClientEffectTypeID:
+        return ClientEffectTypeID.TICKETS_ANIMATION
+
+
+@ioprepped
+@dataclass
+class ClientEffectTokensAnimation(ClientEffect):
+    """Animate tokens count."""
+
+    duration: Annotated[float, IOAttrs('u')]
+    startvalue: Annotated[int, IOAttrs('s')]
+    endvalue: Annotated[int, IOAttrs('e')]
+
+    @override
+    @classmethod
+    def get_type_id(cls) -> ClientEffectTypeID:
+        return ClientEffectTypeID.TOKENS_ANIMATION
 
 
 @ioprepped
@@ -885,3 +892,68 @@ class ScoreSubmitResponse(Response):
 
     # Things we should show on our end.
     effects: Annotated[list[ClientEffect], IOAttrs('fx')]
+
+
+@ioprepped
+@dataclass
+class ChestActionMessage(Message):
+    """Request action about a chest."""
+
+    class Action(Enum):
+        """Types of actions we can request."""
+
+        # Unlocking (for free or with tokens).
+        UNLOCK = 'u'
+
+        # Watched an ad to reduce wait.
+        AD = 'ad'
+
+    action: Annotated[Action, IOAttrs('a')]
+
+    # Tokens we are paying (only applies to unlock).
+    token_payment: Annotated[int, IOAttrs('t')]
+
+    chest_id: Annotated[str, IOAttrs('i')]
+
+    @override
+    @classmethod
+    def get_response_types(cls) -> list[type[Response] | None]:
+        return [ChestActionResponse]
+
+
+@ioprepped
+@dataclass
+class ChestActionResponse(Response):
+    """Here's the results of that action you asked for, boss."""
+
+    # Tokens that were actually charged.
+    tokens_charged: Annotated[int, IOAttrs('t')] = 0
+
+    # If present, signifies the chest has been opened and we should show
+    # the user this stuff that was in it.
+    contents: Annotated[list[DisplayItemWrapper] | None, IOAttrs('c')] = None
+
+    # If contents are present, which of the chest's prize-sets they
+    # represent.
+    prizeindex: Annotated[int, IOAttrs('i')] = 0
+
+    # Printable error if something goes wrong.
+    error: Annotated[str | None, IOAttrs('e')] = None
+
+    # Printable warning. Shown in orange with an error sound. Does not
+    # mean the action failed; only that there's something to tell the
+    # users such as 'It looks like you are faking ad views; stop it or
+    # you won't have ad options anymore.'
+    warning: Annotated[str | None, IOAttrs('w', store_default=False)] = None
+
+    # Printable success message. Shown in green with a cash-register
+    # sound. Can be used for things like successful wait reductions via
+    # ad views. Used in builds earlier than 22311; can remove once
+    # 22311+ is ubiquitous.
+    success_msg: Annotated[str | None, IOAttrs('s', store_default=False)] = None
+
+    # Effects to show on the client. Replaces warning and success_msg in
+    # build 22311 or newer.
+    effects: Annotated[
+        list[ClientEffect], IOAttrs('fx', store_default=False)
+    ] = field(default_factory=list)

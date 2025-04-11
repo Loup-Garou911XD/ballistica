@@ -39,22 +39,22 @@
 
 namespace ballistica::classic {
 
-const int kMaxChatMessages = 40;
+const int kMaxChatMessages{40};
 
 /// How long a kick vote lasts.
-const int kKickVoteDuration = 30000;
+const int kKickVoteDuration{30000};
 
 /// How long everyone has to wait to start a new kick vote after a failed one.
-const int kKickVoteFailRetryDelay = 60000;
+const int kKickVoteFailRetryDelay{60000};
 
 /// Extra delay for the initiator of a failed vote.
-const int kKickVoteFailRetryDelayInitiatorExtra = 120000;
+const int kKickVoteFailRetryDelayInitiatorExtra{120000};
 
 // Minimum clients that must be present for a kick vote to count. (for
 // non-headless builds we require more votes since the host doesn't count
 // but may be playing (in a 2on2 with 3 clients, don't want 2 clients able
 // to kick).
-const int kKickVoteMinimumClients = (g_buildconfig.headless_build() ? 3 : 4);
+const int kKickVoteMinimumClients{g_buildconfig.headless_build() ? 3 : 4};
 
 struct ClassicAppMode::ScanResultsEntryPriv_ {
   scene_v1::PlayerSpec player_spec;
@@ -77,7 +77,7 @@ base::InputDeviceDelegate* ClassicAppMode::CreateInputDeviceDelegate(
 }
 
 // Go with 5 minute ban.
-const int kKickBanSeconds = 5 * 60;
+const int kKickBanSeconds{5 * 60};
 
 bool ClassicAppMode::IsInMainMenu() const {
   scene_v1::HostSession* hostsession =
@@ -169,12 +169,21 @@ void ClassicAppMode::Reset_() {
       root_widget->SetAchievementPercentText(root_ui_achievement_percent_text_);
       root_widget->SetLevelText(root_ui_level_text_);
       root_widget->SetXPText(root_ui_xp_text_);
-      root_widget->SetInboxCountText(root_ui_inbox_count_text_);
+      root_widget->SetInboxState(root_ui_inbox_count_,
+                                 root_ui_inbox_count_is_max_,
+                                 root_ui_inbox_announce_text_);
+      root_widget->set_highlight_potential_token_purchases(
+          root_ui_highlight_potential_token_purchases_);
+
       root_widget->SetChests(
           root_ui_chest_0_appearance_, root_ui_chest_1_appearance_,
           root_ui_chest_2_appearance_, root_ui_chest_3_appearance_,
+          root_ui_chest_0_create_time_, root_ui_chest_1_create_time_,
+          root_ui_chest_2_create_time_, root_ui_chest_3_create_time_,
           root_ui_chest_0_unlock_time_, root_ui_chest_1_unlock_time_,
           root_ui_chest_2_unlock_time_, root_ui_chest_3_unlock_time_,
+          root_ui_chest_0_unlock_tokens_, root_ui_chest_1_unlock_tokens_,
+          root_ui_chest_2_unlock_tokens_, root_ui_chest_3_unlock_tokens_,
           root_ui_chest_0_ad_allow_time_, root_ui_chest_1_ad_allow_time_,
           root_ui_chest_2_ad_allow_time_, root_ui_chest_3_ad_allow_time_);
       root_widget->SetHaveLiveValues(root_ui_have_live_values_);
@@ -1266,6 +1275,17 @@ void ClassicAppMode::DoApplyAppConfig() {
 
   idle_exit_minutes_ = g_base->app_config->Resolve(
       base::AppConfig::OptionalFloatID::kIdleExitMinutes);
+
+  // Whether to highlight chests that *could* be opened with tokens.
+  root_ui_highlight_potential_token_purchases_ = g_base->app_config->Resolve(
+      base::AppConfig::BoolID::kHighlightPotentialTokenPurchases);
+  // Apply to any running ui.
+  if (uiv1_) {
+    if (auto* root_widget = uiv1_->root_widget()) {
+      root_widget->set_highlight_potential_token_purchases(
+          root_ui_highlight_potential_token_purchases_);
+    }
+  }
 }
 
 void ClassicAppMode::PruneSessions_() {
@@ -1497,8 +1517,8 @@ void ClassicAppMode::SetInternalMusic(base::SoundAsset* music, float volume,
 void ClassicAppMode::HandleGameQuery(const char* buffer, size_t size,
                                      sockaddr_storage* from) {
   if (size == 5) {
-    // If we're already in a party, don't advertise since they
-    // wouldn't be able to join us anyway.
+    // If we're already in a party, don't advertise since they wouldn't be
+    // able to join us anyway.
     if (g_base->app_mode()->HasConnectionToHost()) {
       return;
     }
@@ -1507,16 +1527,15 @@ void ClassicAppMode::HandleGameQuery(const char* buffer, size_t size,
     uint32_t query_id;
     memcpy(&query_id, buffer + 1, 4);
 
-    // Ship them a response packet containing the query id,
-    // our protocol version, our unique-app-instance-id, and our
-    // player_spec.
+    // Ship them a response packet containing the query id, our protocol
+    // version, our unique-app-instance-id, and our player_spec.
     char msg[400];
 
     std::string usid = g_base->GetAppInstanceUUID();
     std::string player_spec_string;
 
-    // If we're signed in, send our account spec.
-    // Otherwise just send a dummy made with our device name.
+    // If we're signed in, send our account spec. Otherwise just send a
+    // dummy made with our device name.
     player_spec_string =
         scene_v1::PlayerSpec::GetAccountPlayerSpec().GetSpecString();
 
@@ -1632,11 +1651,13 @@ void ClassicAppMode::SetRootUILeagueValues(const std::string league_type,
   }
 }
 
-void ClassicAppMode::GetRootUIAccountLeagueVisValues(std::string* league_type,
-                                                     int* league_number,
-                                                     int* league_rank) {
+void ClassicAppMode::GetAccountDisplayState(std::string* league_type,
+                                            int* league_number,
+                                            int* league_rank, int* inbox_count,
+                                            bool* inbox_count_is_max) {
   assert(g_base->InLogicThread());
-  assert(league_type && league_number && league_rank);
+  assert(league_type && league_number && league_rank && inbox_count
+         && inbox_count_is_max);
 
   // What we're asking for here is the current *displayed* values in the ui
   // (the latest values we have provided to them may not be visible yet due
@@ -1646,6 +1667,8 @@ void ClassicAppMode::GetRootUIAccountLeagueVisValues(std::string* league_type,
       *league_type = root_widget->league_type_vis_value();
       *league_number = root_widget->league_number_vis_value();
       *league_rank = root_widget->league_rank_vis_value();
+      *inbox_count = root_widget->inbox_count_vis_value();
+      *inbox_count_is_max = root_widget->inbox_count_is_max_vis_value();
       return;
     }
   }
@@ -1654,10 +1677,14 @@ void ClassicAppMode::GetRootUIAccountLeagueVisValues(std::string* league_type,
   *league_type = "";
   *league_number = -1;
   *league_rank = -1;
+  *inbox_count = -1;
+  *inbox_count_is_max = false;
 }
 
-void ClassicAppMode::SetRootUIAccountLeagueVisValues(
-    const std::string& league_type, int league_number, int league_rank) {
+void ClassicAppMode::SetAccountDisplayState(const std::string& league_type,
+                                            int league_number, int league_rank,
+                                            int inbox_count,
+                                            bool inbox_count_is_max) {
   assert(g_base->InLogicThread());
 
   // Apply it to any existing UI.
@@ -1665,8 +1692,9 @@ void ClassicAppMode::SetRootUIAccountLeagueVisValues(
     if (auto* root_widget = uiv1_->root_widget()) {
       // Ask the root widget to restore these vis values and kick off anims
       // to the current actual values or whatnot if applicable.
-      root_widget->RestoreLeagueRankDisplayVisValues(league_type, league_number,
-                                                     league_rank);
+      root_widget->RestoreAccountDisplayState(league_type, league_number,
+                                              league_rank, inbox_count,
+                                              inbox_count_is_max);
     }
   }
 }
@@ -1721,19 +1749,24 @@ void ClassicAppMode::SetRootUIXPText(const std::string text) {
   }
 }
 
-void ClassicAppMode::SetRootUIInboxCountText(const std::string text) {
+void ClassicAppMode::SetRootUIInboxState(int count, bool is_max,
+                                         const std::string& announce_text) {
   assert(g_base->InLogicThread());
-  if (text == root_ui_inbox_count_text_) {
+  if (count == root_ui_inbox_count_ && is_max == root_ui_inbox_count_is_max_) {
     return;
   }
 
   // Store the value.
-  root_ui_inbox_count_text_ = text;
+  root_ui_inbox_count_ = count;
+  root_ui_inbox_count_is_max_ = is_max;
+  root_ui_inbox_announce_text_ = announce_text;
 
   // Apply it to any existing UI.
   if (uiv1_) {
     if (auto* root_widget = uiv1_->root_widget()) {
-      root_widget->SetInboxCountText(root_ui_inbox_count_text_);
+      root_widget->SetInboxState(root_ui_inbox_count_,
+                                 root_ui_inbox_count_is_max_,
+                                 root_ui_inbox_announce_text_);
     }
   }
 }
@@ -1756,7 +1789,7 @@ void ClassicAppMode::SetRootUIGoldPass(bool enabled) {
   }
 }
 
-void ClassicAppMode::SetRootUIHaveLiveValues(bool have_live_values) {
+void ClassicAppMode::SetHaveLiveAccountValues(bool have_live_values) {
   if (have_live_values == root_ui_have_live_values_) {
     return;
   }
@@ -1776,9 +1809,13 @@ void ClassicAppMode::SetRootUIChests(
     const std::string& chest_0_appearance,
     const std::string& chest_1_appearance,
     const std::string& chest_2_appearance,
-    const std::string& chest_3_appearance, seconds_t chest_0_unlock_time,
+    const std::string& chest_3_appearance, seconds_t chest_0_create_time,
+    seconds_t chest_1_create_time, seconds_t chest_2_create_time,
+    seconds_t chest_3_create_time, seconds_t chest_0_unlock_time,
     seconds_t chest_1_unlock_time, seconds_t chest_2_unlock_time,
-    seconds_t chest_3_unlock_time, seconds_t chest_0_ad_allow_time,
+    seconds_t chest_3_unlock_time, int chest_0_unlock_tokens,
+    int chest_1_unlock_tokens, int chest_2_unlock_tokens,
+    int chest_3_unlock_tokens, seconds_t chest_0_ad_allow_time,
     seconds_t chest_1_ad_allow_time, seconds_t chest_2_ad_allow_time,
     seconds_t chest_3_ad_allow_time) {
   assert(g_base->InLogicThread());
@@ -1786,6 +1823,10 @@ void ClassicAppMode::SetRootUIChests(
       && chest_1_appearance == root_ui_chest_1_appearance_
       && chest_2_appearance == root_ui_chest_2_appearance_
       && chest_3_appearance == root_ui_chest_3_appearance_
+      && chest_0_create_time == root_ui_chest_0_create_time_
+      && chest_1_create_time == root_ui_chest_1_create_time_
+      && chest_2_create_time == root_ui_chest_2_create_time_
+      && chest_3_create_time == root_ui_chest_3_create_time_
       && chest_0_unlock_time == root_ui_chest_0_unlock_time_
       && chest_1_unlock_time == root_ui_chest_1_unlock_time_
       && chest_2_unlock_time == root_ui_chest_2_unlock_time_
@@ -1802,10 +1843,18 @@ void ClassicAppMode::SetRootUIChests(
   root_ui_chest_1_appearance_ = chest_1_appearance;
   root_ui_chest_2_appearance_ = chest_2_appearance;
   root_ui_chest_3_appearance_ = chest_3_appearance;
+  root_ui_chest_0_create_time_ = chest_0_create_time;
+  root_ui_chest_1_create_time_ = chest_1_create_time;
+  root_ui_chest_2_create_time_ = chest_2_create_time;
+  root_ui_chest_3_create_time_ = chest_3_create_time;
   root_ui_chest_0_unlock_time_ = chest_0_unlock_time;
   root_ui_chest_1_unlock_time_ = chest_1_unlock_time;
   root_ui_chest_2_unlock_time_ = chest_2_unlock_time;
   root_ui_chest_3_unlock_time_ = chest_3_unlock_time;
+  root_ui_chest_0_unlock_tokens_ = chest_0_unlock_tokens;
+  root_ui_chest_1_unlock_tokens_ = chest_1_unlock_tokens;
+  root_ui_chest_2_unlock_tokens_ = chest_2_unlock_tokens;
+  root_ui_chest_3_unlock_tokens_ = chest_3_unlock_tokens;
   root_ui_chest_0_ad_allow_time_ = chest_0_ad_allow_time;
   root_ui_chest_1_ad_allow_time_ = chest_1_ad_allow_time;
   root_ui_chest_2_ad_allow_time_ = chest_2_ad_allow_time;
@@ -1817,8 +1866,12 @@ void ClassicAppMode::SetRootUIChests(
       root_widget->SetChests(
           root_ui_chest_0_appearance_, root_ui_chest_1_appearance_,
           root_ui_chest_2_appearance_, root_ui_chest_3_appearance_,
+          root_ui_chest_0_create_time_, root_ui_chest_1_create_time_,
+          root_ui_chest_2_create_time_, root_ui_chest_3_create_time_,
           root_ui_chest_0_unlock_time_, root_ui_chest_1_unlock_time_,
           root_ui_chest_2_unlock_time_, root_ui_chest_3_unlock_time_,
+          root_ui_chest_0_unlock_tokens_, root_ui_chest_1_unlock_tokens_,
+          root_ui_chest_2_unlock_tokens_, root_ui_chest_3_unlock_tokens_,
           root_ui_chest_0_ad_allow_time_, root_ui_chest_1_ad_allow_time_,
           root_ui_chest_2_ad_allow_time_, root_ui_chest_3_ad_allow_time_);
     }
@@ -1833,6 +1886,39 @@ auto ClassicAppMode::GetBottomLeftEdgeHeight() -> float {
     }
   }
   return 0.0f;
+}
+
+void ClassicAppMode::AnimateRootUIChestUnlockTime(const std::string& chestid,
+                                                  seconds_t duration,
+                                                  seconds_t startvalue,
+                                                  seconds_t endvalue) {
+  assert(g_base->InLogicThread());
+  if (uiv1_) {
+    if (auto* root_widget = uiv1_->root_widget()) {
+      root_widget->AnimateChestUnlockTime(chestid, duration, startvalue,
+                                          endvalue);
+    }
+  }
+}
+
+void ClassicAppMode::AnimateRootUITickets(seconds_t duration, int startvalue,
+                                          int endvalue) {
+  assert(g_base->InLogicThread());
+  if (uiv1_) {
+    if (auto* root_widget = uiv1_->root_widget()) {
+      root_widget->AnimateTickets(duration, startvalue, endvalue);
+    }
+  }
+}
+
+void ClassicAppMode::AnimateRootUITokens(seconds_t duration, int startvalue,
+                                         int endvalue) {
+  assert(g_base->InLogicThread());
+  if (uiv1_) {
+    if (auto* root_widget = uiv1_->root_widget()) {
+      root_widget->AnimateTokens(duration, startvalue, endvalue);
+    }
+  }
 }
 
 }  // namespace ballistica::classic
