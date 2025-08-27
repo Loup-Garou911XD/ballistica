@@ -216,9 +216,9 @@ jobs:
             path: |
               ~/.local/share/flatpak
               /var/lib/flatpak
-            key: ${{ runner.os }}-flatpak-sdk-SDL2-python3.13.3-rsync
+            key: ${{ runner.os }}-${{runner.arch}}-flatpak-sdk-SDL2-python3.13.3-rsync
             restore-keys: |
-              ${{ runner.os }}-flatpak-sdk-
+              ${{ runner.os }}-${{runner.arch}}-flatpak-sdk-
         # Cache flatpak builder dir
         - name: Cache flatpak-builder
           id: cache-flatpak-builder
