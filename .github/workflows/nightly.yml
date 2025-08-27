@@ -248,6 +248,7 @@ jobs:
             make env
         - name: Install dependencies
           run: |
+            sudo apt update
             sudo apt install -y flatpak flatpak-builder
         
         # - name: Build Flatpak
