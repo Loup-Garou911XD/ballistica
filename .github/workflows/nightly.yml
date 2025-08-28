@@ -270,7 +270,6 @@ jobs:
           with:
             path: |
               ~/.local/share/flatpak
-              /var/lib/flatpak
             key: ${{ runner.os }}-${{runner.arch}}-flatpak-sdk-SDL2-python3.13.3-rsync
             restore-keys: |
               ${{ runner.os }}-${{runner.arch}}-flatpak-sdk-
