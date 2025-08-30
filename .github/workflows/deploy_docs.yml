@@ -6,7 +6,45 @@ on:
       - main
 
 jobs:
+  setup_bombsquad_cache:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Cache Python venv
+        id: cache-venv
+        uses: actions/cache@v4
+        env:
+          cache-name: cache-python-venv
+        with:
+          path: .venv
+          key: ${{ runner.os }}-${{ env.cache-name }}-${{ hashFiles('config/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ env.cache-name }}-
+      - name: Cache Bombsquad assets
+        id: cache-assets
+        uses: actions/cache@v4
+        env:
+          cache-name: cache-bombsquad-assets
+        with:
+          path: |
+            build/assets
+            .cache/efrocache/
+          key: ${{ runner.os }}-${{ env.cache-name }}-${{ hashFiles('.efrocachemap') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ env.cache-name }}-
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Setup project environment
+        run: make env
+      - name: Make the build
+        run: |
+          make assets-cmake
+          make assets-windows
+
   build:
+    needs: setup_bombsquad_cache
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -24,7 +62,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.13'
+          python-version: "3.13"
       - name: Setup project environment
         run: make env
       - name: Build documentation
@@ -41,8 +79,8 @@ jobs:
 
     # Grant GITHUB_TOKEN the permissions required to make a Pages deployment
     permissions:
-      pages: write      # to deploy to Pages
-      id-token: write   # to verify the deployment originates from an appropriate source
+      pages: write # to deploy to Pages
+      id-token: write # to verify the deployment originates from an appropriate source
 
     # Deploy to the github-pages environment
     environment:

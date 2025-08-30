@@ -6,7 +6,7 @@ on:
   pull_request:
 
 jobs:
-  make_bombsquad_cache:
+  setup_bombsquad_cache:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -44,7 +44,7 @@ jobs:
           make assets-windows
 
   make_linux_x86_64_gui_debug_build:
-    needs: make_bombsquad_cache
+    needs: setup_bombsquad_cache
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -85,7 +85,7 @@ jobs:
           path: build/prefab/full/linux_x86_64_gui
 
   make_linux_x86_64_server_debug_build:
-    needs: make_bombsquad_cache
+    needs: setup_bombsquad_cache
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -126,7 +126,7 @@ jobs:
           path: build/prefab/full/linux_x86_64_server
 
   make_linux_arm64_gui_debug_build:
-    needs: make_bombsquad_cache
+    needs: setup_bombsquad_cache
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -167,7 +167,7 @@ jobs:
           path: build/prefab/full/linux_arm64_gui
 
   make_linux_arm64_server_debug_build:
-    needs: make_bombsquad_cache
+    needs: setup_bombsquad_cache
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -247,7 +247,7 @@ jobs:
   #       path: build/prefab/full/mac_x86_64_server
 
   make_mac_arm64_gui_debug_build:
-    needs: make_bombsquad_cache
+    needs: setup_bombsquad_cache
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -288,7 +288,7 @@ jobs:
           path: build/prefab/full/mac_arm64_gui
 
   make_mac_arm64_server_debug_build:
-    needs: make_bombsquad_cache
+    needs: setup_bombsquad_cache
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -329,7 +329,7 @@ jobs:
           path: build/prefab/full/mac_arm64_server
 
   make_windows_x86_64_gui_debug_build:
-    needs: make_bombsquad_cache
+    needs: setup_bombsquad_cache
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -370,7 +370,7 @@ jobs:
           path: build/prefab/full/windows_x86_64_gui
 
   make_windows_x86_64_server_debug_build:
-    needs: make_bombsquad_cache
+    needs: setup_bombsquad_cache
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

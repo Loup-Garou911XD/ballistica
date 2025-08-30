@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  make_bombsquad_cache:
+  setup_bombsquad_cache:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -44,7 +44,7 @@ jobs:
           make assets-windows
 
   make_docker_gui_debug_image:
-    needs: make_bombsquad_cache
+    needs: setup_bombsquad_cache
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -97,7 +97,7 @@ jobs:
           docker push ghcr.io/${GITHUB_REPOSITORY,,}/bombsquad_gui:debug_nightly_x86_64
 
   make_docker_server_debug_image:
-    needs: make_bombsquad_cache
+    needs: setup_bombsquad_cache
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -150,7 +150,7 @@ jobs:
           docker push ghcr.io/${GITHUB_REPOSITORY,,}/bombsquad_server:debug_nightly_x86_64
 
   make_docs:
-    needs: make_bombsquad_cache
+    needs: setup_bombsquad_cache
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -191,7 +191,7 @@ jobs:
           path: build/docs
 
   make_flatpak_x86_64_gui_debug:
-    needs: make_bombsquad_cache
+    needs: setup_bombsquad_cache
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -264,7 +264,7 @@ jobs:
           path: build/flatpak/bombsquad.flatpak
 
   make_flatpak_arm64_gui_debug:
-    needs: make_bombsquad_cache
+    needs: setup_bombsquad_cache
     runs-on: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@v4
