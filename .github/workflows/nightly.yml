@@ -222,7 +222,6 @@ jobs:
             name: bombsquad_x86_64(debug).flatpak
             path: build/flatpak/bombsquad.flatpak
 
-
     make_flatpak_arm64_gui_debug:
         runs-on: ubuntu-24.04-arm
         steps:
