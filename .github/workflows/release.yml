@@ -596,37 +596,20 @@ jobs:
             restore-keys: |
               ${{ runner.os }}-venv-${{ env.cache-name }}-
               ${{ runner.os }}-venv-
-        # Cache Flatpak SDK and Platform installations
-        - name: Cache Flatpak SDK and Platform
+        - name: Cache Flatpak data
           id: cache-flatpak-sdk
           uses: actions/cache@v4
+          env:
+            cache-name: cache-flatpak
           with:
             path: |
               ~/.local/share/flatpak
-              /var/lib/flatpak
-            key: ${{ runner.os }}-flatpak-sdk-SDL2-python3.13.3-rsync
+              .cache/flatpak/flatpak-builder
+              .cache/flatpak/build_dir
+              .cache/flatpak/repo
+            key: ${{ runner.os }}-${{runner.arch}}-${{ env.cache-name }}-${{ hashFiles('config/flatpak/net.froemling.BombSquad.yml') }}
             restore-keys: |
-              ${{ runner.os }}-flatpak-sdk-
-        # Cache flatpak builder dir
-        - name: Cache flatpak-builder
-          id: cache-flatpak-builder
-          uses: actions/cache@v4
-          with:
-            path: .cache/flatpak/flatpak-builder
-            key: ${{ runner.os }}-flatpak-builder-SDL2-python3.13.3-rsync
-            restore-keys: |
-              ${{ runner.os }}-flatpak-builder-
-        # Cache flatpak build output directory and repo
-        - name: Cache flatpak build_dir and repo
-          id: cache-flatpak-build
-          uses: actions/cache@v4
-          with:
-            path: |
-             .cache/flatpak/build_dir
-             .cache/flatpak/repo
-            key: ${{ runner.os }}-flatpak-build-SDL2-python3.13.3
-            restore-keys: |
-              ${{ runner.os }}-flatpak-build-
+              ${{ runner.os }}-${{runner.arch}}-${{ env.cache-name }}-
         - name: Set up Python
           uses: actions/setup-python@v5
           with:
