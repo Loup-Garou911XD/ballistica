@@ -19,7 +19,7 @@ jobs:
 
   make_linux_x86_64_gui_debug_build:
     needs: setup_bombsquad_cache
-    runs-on: ubuntu-latest
+    runs-on: [ubuntu-latest, ubuntu-24.04-arm]
     steps:
       - uses: actions/checkout@v4
       - name: Setup build env
