@@ -10,7 +10,9 @@ runs:
       env:
         cache-name: cache-python-venv
       with:
-        path: .venv
+        path: |
+          .venv
+          .cache/checkenv
         key: ${{ runner.os }}-${{runner.arch}}-${{ env.cache-name }}-${{ hashFiles('config/requirements.txt') }}
         restore-keys: |
           ${{ runner.os }}-${{runner.arch}}-${{ env.cache-name }}-
