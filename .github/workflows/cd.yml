@@ -15,6 +15,7 @@ jobs:
       - name: Make the build
         run: |
           make assets-cmake
+          make assets-server
           make assets-windows
 
   make_linux_x86_64_gui_debug_build:

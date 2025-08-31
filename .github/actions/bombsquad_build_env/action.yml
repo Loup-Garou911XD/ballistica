@@ -23,8 +23,9 @@ runs:
         cache-name: cache-bombsquad-assets
       with:
         path: |
-          build/assets
+          build/assets/
           .cache/efrocache/
+          .cache/lazybuild/
         key: ${{ runner.os }}-${{ env.cache-name }}-${{ hashFiles('.efrocachemap') }}
         restore-keys: |
           ${{ runner.os }}-${{ env.cache-name }}-
