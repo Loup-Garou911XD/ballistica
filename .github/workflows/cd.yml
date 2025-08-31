@@ -33,6 +33,7 @@ jobs:
         uses: ./.github/actions/bombsquad_build_env
       - name: Make the build
         run: |
+          sudo apt install -y libsdl2
           make cmake-build
           mv build/cmake/debug/ballisticakit build/cmake/debug/staged
       - name: Upload the build
