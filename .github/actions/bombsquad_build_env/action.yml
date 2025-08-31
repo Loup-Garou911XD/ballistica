@@ -30,12 +30,14 @@ runs:
     - name: Restore CMake build cache
       id: cache-cmake-restore
       uses: actions/cache/restore@v4
+      env:
+        cache-name: cache-cmake
       with:
         path: |
           build/cmake
-        key: ${{ runner.os }}-${{ runner.arch }}-cmake-build-${{ github.sha }}
+        key: ${{ runner.os }}-${{ runner.arch }}-${{ env.cache-name }}-${{ github.sha }}
         restore-keys: |
-          ${{ runner.os }}-${{ runner.arch }}-cmake-build-
+          ${{ runner.os }}-${{ runner.arch }}-${{ env.cache-name }}-
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
