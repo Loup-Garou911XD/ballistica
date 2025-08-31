@@ -25,12 +25,14 @@ jobs:
       - name: Setup build env
         uses: ./.github/actions/bombsquad_build_env
       - name: Make the build
-        run: make prefab-gui-debug-build
+        run: |
+          make cmake-build
+          mv build/cmake/debug/ballisticakit build/cmake/debug/staged
       - name: Upload the build
         uses: actions/upload-artifact@v4
         with:
           name: linux_x86_64_gui_(debug)
-          path: build/prefab/full/linux_x86_64_gui
+          path: build/cmake/debug/staged
 
   make_linux_x86_64_server_debug_build:
     needs: setup_bombsquad_cache
