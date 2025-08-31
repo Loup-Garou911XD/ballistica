@@ -35,7 +35,7 @@ jobs:
       - name: Make the build
         run: |
           sudo apt update
-          sudo apt install -y libsdl2-dev libopenal-dev
+          sudo apt install -y libsdl2-dev libopenal-dev libogg-dev
           make cmake-build
           mv build/cmake/debug/ballisticakit build/cmake/debug/staged
       - name: Upload the build
