@@ -37,6 +37,7 @@ jobs:
           sudo apt update
           sudo apt install -y libsdl2-dev libopenal-dev libogg-dev libvorbis-dev rsync
           make cmake-build
+          rm build/cmake/debug/staged/ballisticakit
           cp build/cmake/debug/ballisticakit build/cmake/debug/staged
       - name: Save CMake build cache
         id: cache-cmake-save
@@ -71,6 +72,7 @@ jobs:
           sudo apt update
           sudo apt install -y libsdl2-dev libopenal-dev libogg-dev libvorbis-dev rsync
           make cmake-server-build
+          rm  build/cmake/server-debug/staged/dist/ballisticakit_headless
           cp build/cmake/server-debug/ballisticakit_headless build/cmake/server-debug/staged/dist/
       - name: Save CMake build cache
         id: cache-cmake-save

@@ -13,6 +13,16 @@ runs:
         path: |
           build/assets/
           .cache/
+          .dir-locals.el
+          .rgignore
+          .mypy.ini
+          .pyrightconfig.json
+          .pylintrc
+          .clang-format
+          ballisticakit-cmake/.clang-format
+          tools/cloudshell
+          tools/bacloud
+          tools/pcommand
         key: ${{ runner.os }}-${{ env.cache-name }}-${{ hashFiles('.efrocachemap') }}
         restore-keys: |
           ${{ runner.os }}-${{ env.cache-name }}-
