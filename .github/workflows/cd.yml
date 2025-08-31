@@ -19,7 +19,14 @@ jobs:
 
   make_linux_x86_64_gui_debug_build:
     needs: setup_bombsquad_cache
-    runs-on: [ubuntu-latest, ubuntu-24.04-arm]
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            os_arch: x86_64
+          - os: ubuntu-24.04-arm
+            os_arch: arm64
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
       - name: Setup build env
@@ -31,7 +38,7 @@ jobs:
       - name: Upload the build
         uses: actions/upload-artifact@v4
         with:
-          name: linux_x86_64_gui_(debug)
+          name: linux_${{ matrix.os_arch }}_gui_(debug)
           path: build/cmake/debug/staged
 
   make_linux_x86_64_server_debug_build:
