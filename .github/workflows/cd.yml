@@ -39,14 +39,14 @@ jobs:
           make cmake-build
           rm build/cmake/debug/staged/ballisticakit
           cp build/cmake/debug/ballisticakit build/cmake/debug/staged
-      - name: Save CMake build cache
-        id: cache-cmake-save
-        uses: actions/cache/save@v4
-        env:
-          cache-name: cache-cmake
-        with:
-          path: build/cmake
-          key: ${{ runner.os }}-${{ runner.arch }}-${{ env.cache-name }}-${{ github.sha }}
+      # - name: Save CMake build cache
+      #   id: cache-cmake-save
+      #   uses: actions/cache/save@v4
+      #   env:
+      #     cache-name: cache-cmake
+      #   with:
+      #     path: build/cmake
+      #     key: ${{ runner.os }}-${{ runner.arch }}-${{ env.cache-name }}-${{ github.sha }}
       - name: Upload the build
         uses: actions/upload-artifact@v4
         with:
@@ -74,14 +74,6 @@ jobs:
           make cmake-server-build
           rm  build/cmake/server-debug/staged/dist/ballisticakit_headless
           cp build/cmake/server-debug/ballisticakit_headless build/cmake/server-debug/staged/dist/
-      - name: Save CMake build cache
-        id: cache-cmake-save
-        uses: actions/cache/save@v4
-        env:
-          cache-name: cache-cmake
-        with:
-          path: build/cmake
-          key: ${{ runner.os }}-${{ runner.arch }}-${{ env.cache-name }}-${{ github.sha }}
       - name: Upload the build
         uses: actions/upload-artifact@v4
         with:

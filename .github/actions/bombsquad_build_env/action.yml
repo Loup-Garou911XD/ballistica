@@ -23,6 +23,9 @@ runs:
           tools/cloudshell
           tools/bacloud
           tools/pcommand
+          tools/efrotools/__pycache__/
+          tools/batools/__pycache__/
+          tools/efro/__pycache__/
         key: ${{ runner.os }}-${{ env.cache-name }}-${{ hashFiles('.efrocachemap') }}
         restore-keys: |
           ${{ runner.os }}-${{ env.cache-name }}-
