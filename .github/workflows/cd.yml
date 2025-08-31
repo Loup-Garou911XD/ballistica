@@ -62,7 +62,7 @@ jobs:
         run: |
           sudo apt update
           sudo apt install -y libsdl2-dev libopenal-dev libogg-dev libvorbis-dev rsync
-          make cmake-build
+          make cmake-server-build
           mv build/cmake/server-debug/ballisticakit_headless build/cmake/server-debug/staged/dist/
       - name: Upload the build
         uses: actions/upload-artifact@v4
