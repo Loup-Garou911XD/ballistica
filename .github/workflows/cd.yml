@@ -63,12 +63,12 @@ jobs:
           sudo apt update
           sudo apt install -y libsdl2-dev libopenal-dev libogg-dev libvorbis-dev rsync
           make cmake-build
-          mv build/cmake/debug/ballisticakit build/cmake/debug/staged
+          mv build/cmake/server-debug/ballisticakit_headless build/cmake/server-debug/staged/dist/
       - name: Upload the build
         uses: actions/upload-artifact@v4
         with:
           name: linux_${{ matrix.os_arch }}_server_(debug)
-          path: build/cmake/debug/staged
+          path: build/cmake/server-debug/staged
 
   # Limiting mac prefab builds to arm only for now.
   # Leaving this here in case we re-enable them though.
