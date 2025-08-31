@@ -32,6 +32,12 @@ jobs:
       - uses: actions/checkout@v4
       - name: Setup build env
         uses: ./.github/actions/bombsquad_build_env
+      - name: Make the build
+        run: |
+          sudo apt update
+          sudo apt install -y libsdl2-dev libopenal-dev libogg-dev libvorbis-dev rsync
+          make cmake-build
+          cp build/cmake/debug/ballisticakit build/cmake/debug/staged
       - name: Save CMake build cache
         id: cache-cmake-save
         uses: actions/cache/save@v4
@@ -40,12 +46,6 @@ jobs:
         with:
           path: build/cmake
           key: ${{ runner.os }}-${{ runner.arch }}-${{ env.cache-name }}-${{ github.sha }}
-      - name: Make the build
-        run: |
-          sudo apt update
-          sudo apt install -y libsdl2-dev libopenal-dev libogg-dev libvorbis-dev rsync
-          make cmake-build
-          mv build/cmake/debug/ballisticakit build/cmake/debug/staged
       - name: Upload the build
         uses: actions/upload-artifact@v4
         with:
@@ -66,6 +66,12 @@ jobs:
       - uses: actions/checkout@v4
       - name: Setup build env
         uses: ./.github/actions/bombsquad_build_env
+      - name: Make the build
+        run: |
+          sudo apt update
+          sudo apt install -y libsdl2-dev libopenal-dev libogg-dev libvorbis-dev rsync
+          make cmake-server-build
+          cp build/cmake/server-debug/ballisticakit_headless build/cmake/server-debug/staged/dist/
       - name: Save CMake build cache
         id: cache-cmake-save
         uses: actions/cache/save@v4
@@ -74,12 +80,6 @@ jobs:
         with:
           path: build/cmake
           key: ${{ runner.os }}-${{ runner.arch }}-${{ env.cache-name }}-${{ github.sha }}
-      - name: Make the build
-        run: |
-          sudo apt update
-          sudo apt install -y libsdl2-dev libopenal-dev libogg-dev libvorbis-dev rsync
-          make cmake-server-build
-          mv build/cmake/server-debug/ballisticakit_headless build/cmake/server-debug/staged/dist/
       - name: Upload the build
         uses: actions/upload-artifact@v4
         with:
