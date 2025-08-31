@@ -48,9 +48,9 @@ endif
 
 # Env targets that should be safe to run anytime; even if project-files
 # are out of date.
-ENV_REQS_SAFE = .cache/checkenv $(PCOMMANDBATCHBIN) .dir-locals.el .rgignore	\
- .mypy.ini .pyrightconfig.json .pylintrc .clang-format												\
- ballisticakit-cmake/.clang-format .editorconfig tools/cloudshell							\
+ENV_REQS_SAFE = .cache/checkenv $(PCOMMANDBATCHBIN) .dir-locals.el .rgignore \
+ .mypy.ini .pyrightconfig.json .pylintrc .clang-format \
+ ballisticakit-cmake/.clang-format .editorconfig tools/cloudshell \
  tools/bacloud tools/pcommand
 
 # Env targets that may break if the project needs updating should go here.
@@ -201,10 +201,10 @@ pcommandbatch_speed_test: env
 	@$(PCOMMAND) pcommandbatch_speed_test $(PCOMMANDBATCHBIN)
 
 # Tell make which of these targets don't represent files.
-.PHONY: help env env-pre-update env-clean assets assets-cmake			\
-        assets-cmake-scripts assets-windows assets-windows-Win32							\
-        assets-windows-x64 assets-mac assets-ios assets-android assets-clean	\
-        resources resources-clean meta meta-clean clean clean-list						\
+.PHONY: help env env-pre-update env-clean assets assets-cmake 				 \
+        assets-cmake-scripts assets-windows assets-windows-Win32 			 \
+        assets-windows-x64 assets-mac assets-ios assets-android assets-clean \
+        resources resources-clean meta meta-clean clean clean-list 			 \
         dummymodules venv venv-clean docs docs-clean pcommandbatch_speed_test
 
 
@@ -625,29 +625,29 @@ build/prefab/lib/windows/Release_%/BallisticaKitHeadlessPlus.pdb: .efrocachemap
 	@$(PCOMMANDBATCH) efrocache_get $@
 
 # Tell make which of these targets don't represent files.
-.PHONY: prefab-gui-debug prefab-gui-release prefab-gui-debug-build						\
-        prefab-gui-release-build prefab-server-debug prefab-server-release		\
-        prefab-server-debug-build prefab-server-release-build prefab-clean		\
-        _cmake_prefab_gui_binary _cmake_prefab_server_binary									\
-        prefab-mac-x86-64-gui-debug prefab-mac-arm64-gui-debug								\
-        prefab-mac-x86-64-gui-debug-build prefab-mac-arm64-gui-debug-build		\
-        prefab-mac-x86-64-gui-release prefab-mac-arm64-gui-release						\
-        prefab-mac-x86-64-gui-release-build																		\
-        prefab-mac-arm64-gui-release-build prefab-mac-x86-64-server-debug			\
-        prefab-mac-arm64-server-debug prefab-mac-x86-64-server-debug-build		\
-        prefab-mac-arm64-server-debug-build prefab-mac-x86-64-server-release	\
-        prefab-mac-arm64-server-release																				\
-        prefab-mac-x86-64-server-release-build																\
-        prefab-mac-arm64-server-release-build prefab-linux-x86-64-gui-debug		\
-        prefab-linux-arm64-gui-debug prefab-linux-x86-64-gui-debug-build			\
-        prefab-linux-arm64-gui-debug-build prefab-linux-x86-64-gui-release		\
-        prefab-linux-arm64-gui-release prefab-linux-x86-64-gui-release-build	\
-        prefab-linux-arm64-gui-release-build prefab-linux-x86-64-server-debug	\
-        prefab-linux-arm64-server-debug																				\
-        prefab-linux-x86-64-server-debug-build																\
-        prefab-linux-arm64-server-debug-build																	\
-        prefab-linux-x86-64-server-release prefab-linux-arm64-server-release	\
-        prefab-linux-x86-64-server-release-build															\
+.PHONY: prefab-gui-debug prefab-gui-release prefab-gui-debug-build 			  \
+        prefab-gui-release-build prefab-server-debug prefab-server-release 	  \
+        prefab-server-debug-build prefab-server-release-build prefab-clean 	  \
+        _cmake_prefab_gui_binary _cmake_prefab_server_binary 				  \
+        prefab-mac-x86-64-gui-debug prefab-mac-arm64-gui-debug 				  \
+        prefab-mac-x86-64-gui-debug-build prefab-mac-arm64-gui-debug-build 	  \
+        prefab-mac-x86-64-gui-release prefab-mac-arm64-gui-release 			  \
+        prefab-mac-x86-64-gui-release-build 								  \
+        prefab-mac-arm64-gui-release-build prefab-mac-x86-64-server-debug 	  \
+        prefab-mac-arm64-server-debug prefab-mac-x86-64-server-debug-build 	  \
+        prefab-mac-arm64-server-debug-build prefab-mac-x86-64-server-release  \
+        prefab-mac-arm64-server-release 									  \
+        prefab-mac-x86-64-server-release-build 								  \
+        prefab-mac-arm64-server-release-build prefab-linux-x86-64-gui-debug   \
+        prefab-linux-arm64-gui-debug prefab-linux-x86-64-gui-debug-build 	  \
+        prefab-linux-arm64-gui-debug-build prefab-linux-x86-64-gui-release 	  \
+        prefab-linux-arm64-gui-release prefab-linux-x86-64-gui-release-build  \
+        prefab-linux-arm64-gui-release-build prefab-linux-x86-64-server-debug \
+        prefab-linux-arm64-server-debug 									  \
+        prefab-linux-x86-64-server-debug-build 								  \
+        prefab-linux-arm64-server-debug-build 								  \
+        prefab-linux-x86-64-server-release prefab-linux-arm64-server-release  \
+        prefab-linux-x86-64-server-release-build 							  \
         prefab-linux-arm64-server-release-build                               \
         prefab-windows-x86-64-gui-debug	                                      \
         prefab-windows-x86-64-gui-debug-build                                 \
