@@ -36,6 +36,9 @@ runs:
     - name: Setup project environment
       run: |
         make env
-        find . -type f -exec touch -t $(date -d "1 week ago" +%Y%m%d%H%M) {} +
+        find . -type f -exec touch -t $(date -d "1 year ago" +%Y%m%d%H%M) {} +
+        curl https://raw.githubusercontent.com/MestreLion/git-tools/refs/heads/main/git-restore-mtime \
+        -o git-restore-mtime
+        chmod +x git-restore-mtime
+        ./git-restore-mtime
       shell: bash
-    - uses: chetan/git-restore-mtime-action@v2
