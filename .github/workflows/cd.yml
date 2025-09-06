@@ -58,7 +58,10 @@ jobs:
             libsdl2-dev \
             libvorbis-dev \
             git-restore-mtime
-
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
       - uses: chetan/git-restore-mtime-action@v2
       # - run: |
       #     git restore-mtime
