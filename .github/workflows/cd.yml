@@ -68,10 +68,10 @@ jobs:
           # export PATH="/usr/lib/ccache:/usr/local/opt/ccache/libexec:$PATH"
           # export CMAKE_EXTRA_ARGS="-DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache"
           # find . -type f -name "Makefile" -exec touch -t $(date -d "1 week ago" +%Y%m%d%H%M) {} +
-          curl https://raw.githubusercontent.com/MestreLion/git-tools/refs/heads/main/git-restore-mtime \
-          -o git-restore-mtime
-          chmod +x git-restore-mtime
-          ./git-restore-mtime
+          # curl https://raw.githubusercontent.com/MestreLion/git-tools/refs/heads/main/git-restore-mtime \
+          # -o git-restore-mtime
+          # chmod +x git-restore-mtime
+          # ./git-restore-mtime
           stat LICENSE
           make cmake-build
       - name: Upload the build
