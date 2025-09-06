@@ -4,6 +4,10 @@ runs:
   using: 'composite'
   steps:
     - uses: actions/checkout@v4
+      with:
+        ref: main
+        fetch-depth: 0
+    - uses: chetan/git-restore-mtime-action@v2
     - name: Cache Python venv
       id: cache-venv
       uses: actions/cache@v4
