@@ -50,14 +50,10 @@ jobs:
             clang \
             clang-format \
             cmake \
-            curl \
             libglut-dev \
             libopenal-dev \
             libsdl2-dev \
             libvorbis-dev \
-            make \
-            rsync \
-            zstd \
             git-restore-mtime
 
       - uses: chetan/git-restore-mtime-action@v2
