@@ -59,8 +59,8 @@ jobs:
             git-restore-mtime
 
       - uses: chetan/git-restore-mtime-action@v2
-      # - run: |
-          # git restore-mtime
+      - run: |
+          git restore-mtime
       - name: Make the build
         run: |
           make env
