@@ -28,6 +28,10 @@ jobs:
           key: ${{ github.job }}-linux-x86_64-gui-debug
       - name: Setup build env
         uses: ./.github/actions/bombsquad_build_env
+      - name: Install dependencies
+        run: |
+          sudo apt update
+          sudo apt install libsdl2-dev libvorbis-dev rsync
       - name: Make the build
         run: CMAKE_EXTRA_ARGS="-DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache" make cmake-build
       - name: Upload the build
