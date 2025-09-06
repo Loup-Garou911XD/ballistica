@@ -75,7 +75,6 @@ jobs:
           name: linux_x86_64_gui_(debug)
           path: build/cmake/debug/staged/ballisticakit
 
-
   # make_linux_x86_64_server_debug_build:
   #   needs: setup_bombsquad_cache
   #   runs-on: ubuntu-latest
