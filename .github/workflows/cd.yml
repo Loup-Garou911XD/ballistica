@@ -23,6 +23,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: main
           fetch-depth: 0
       # - name: Setup ccache
       #   uses: hendrikmuhs/ccache-action@v1.2
@@ -58,7 +59,7 @@ jobs:
             libvorbis-dev \
             git-restore-mtime
 
-      # - uses: chetan/git-restore-mtime-action@v2
+      - uses: chetan/git-restore-mtime-action@v2
       # - run: |
       #     git restore-mtime
       - name: Make the build
