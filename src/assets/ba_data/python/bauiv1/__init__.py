@@ -16,8 +16,9 @@ from __future__ import annotations
 
 import logging
 
-# from efro.util import set_canonical_module_names
 from babase import (
+    accountlog,
+    AccountV2Handle,
     add_clean_frame_callback,
     allows_ticket_sales,
     app,
@@ -34,7 +35,13 @@ from babase import (
     AppTime,
     apptimer,
     AppTimer,
+    asset_loads_allowed,
+    balog,
     Call,
+    DevConsoleButtonDef,
+    DevConsoleTab,
+    DevConsoleTabEntry,
+    DevConsoleSubsystem,
     fullscreen_control_available,
     fullscreen_control_get,
     fullscreen_control_key_shortcut,
@@ -43,6 +50,7 @@ from babase import (
     clipboard_is_supported,
     clipboard_set_text,
     commit_app_config,
+    CloudSubscription,
     ContextRef,
     displaytime,
     DisplayTime,
@@ -90,6 +98,7 @@ from babase import (
     pushcall,
     quit,
     QuitType,
+    request_main_ui,
     request_permission,
     safecolor,
     screenmessage,
@@ -103,6 +112,7 @@ from babase import (
     supports_vsync,
     supports_unicode_display,
     timestring,
+    uilog,
     UIScale,
     unlock_all_input,
     utc_now_cloud,
@@ -116,6 +126,7 @@ from _bauiv1 import (
     columnwidget,
     containerwidget,
     get_qrcode_texture,
+    get_selected_widget,
     get_special_widget,
     getmesh,
     getsound,
@@ -136,20 +147,25 @@ from _bauiv1 import (
     uibounds,
     Widget,
     widget,
+    widget_by_id,
 )
 from bauiv1._keyboard import Keyboard
 from bauiv1._uitypes import (
+    uicleanupcheck,
+    RootUIUpdatePause,
+)
+from bauiv1._appsubsystem import UIV1AppSubsystem
+from bauiv1._window import (
     Window,
     MainWindowState,
     BasicMainWindowState,
-    uicleanupcheck,
     MainWindow,
-    RootUIUpdatePause,
     MainWindowAutoRecreateSuppress,
 )
-from bauiv1._appsubsystem import UIV1AppSubsystem
 
 __all__ = [
+    'accountlog',
+    'AccountV2Handle',
     'add_clean_frame_callback',
     'allows_ticket_sales',
     'app',
@@ -167,9 +183,15 @@ __all__ = [
     'AppTime',
     'apptimer',
     'AppTimer',
+    'asset_loads_allowed',
+    'balog',
     'BasicMainWindowState',
     'buttonwidget',
     'Call',
+    'DevConsoleButtonDef',
+    'DevConsoleTab',
+    'DevConsoleTabEntry',
+    'DevConsoleSubsystem',
     'fullscreen_control_available',
     'fullscreen_control_get',
     'fullscreen_control_key_shortcut',
@@ -181,6 +203,7 @@ __all__ = [
     'columnwidget',
     'commit_app_config',
     'containerwidget',
+    'CloudSubscription',
     'ContextRef',
     'displaytime',
     'DisplayTime',
@@ -197,6 +220,7 @@ __all__ = [
     'get_qrcode_texture',
     'get_remote_app_name',
     'get_replays_dir',
+    'get_selected_widget',
     'get_special_widget',
     'get_string_height',
     'get_string_width',
@@ -241,6 +265,7 @@ __all__ = [
     'quit',
     'QuitType',
     'reload_hooks',
+    'request_main_ui',
     'request_permission',
     'root_ui_pause_updates',
     'root_ui_resume_updates',
@@ -266,21 +291,18 @@ __all__ = [
     'timestring',
     'uibounds',
     'uicleanupcheck',
+    'uilog',
     'UIScale',
     'UIV1AppSubsystem',
     'unlock_all_input',
     'utc_now_cloud',
     'WeakCall',
     'widget',
+    'widget_by_id',
     'Widget',
     'Window',
     'workspaces_in_use',
 ]
-
-# We want stuff to show up as bauiv1.Foo instead of bauiv1._sub.Foo.
-# UPDATE: Trying without this for now. Seems like this might cause more
-# harm than good. Can flip it back on if it is missed.
-# set_canonical_module_names(globals())
 
 # Sanity check: we want to keep ballistica's dependencies and
 # bootstrapping order clearly defined; let's check a few particular

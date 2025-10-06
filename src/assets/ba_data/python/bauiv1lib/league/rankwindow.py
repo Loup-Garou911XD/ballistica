@@ -9,6 +9,7 @@ import copy
 import logging
 from typing import TYPE_CHECKING, override
 
+from bauiv1lib.utils import scroll_fade_bottom, scroll_fade_top
 from bauiv1lib.popup import PopupMenu
 import bauiv1 as bui
 
@@ -57,9 +58,6 @@ class LeagueRankWindow(bui.MainWindow):
         )
         self._r = 'coopSelectWindow'
         self._rdict = bui.app.lang.get_resource(self._r)
-        # top_extra = 20 if uiscale is bui.UIScale.SMALL else 0
-
-        # self._xoffs = 80.0 if uiscale is bui.UIScale.SMALL else 0
         self._xoffs = 40
 
         self._league_url_arg = ''
@@ -86,19 +84,19 @@ class LeagueRankWindow(bui.MainWindow):
         yoffs = 0.5 * self._height + 0.5 * target_height + 30.0
 
         self._scroll_width = target_width
-        self._scroll_height = target_height - 35
+        self._scroll_height = target_height - 50
         scroll_bottom = yoffs - 80 - self._scroll_height
+
+        # Go with full-screen scrollable area in small ui.
+        if uiscale is bui.UIScale.SMALL:
+            self._scroll_height += 53
+            scroll_bottom -= 1
 
         super().__init__(
             root_widget=bui.containerwidget(
                 size=(self._width, self._height),
-                stack_offset=(
-                    (0, 0)
-                    if uiscale is bui.UIScale.SMALL
-                    else (0, 10) if uiscale is bui.UIScale.MEDIUM else (0, 0)
-                ),
                 scale=scale,
-                toolbar_visibility=('menu_full'),
+                toolbar_visibility='menu_full',
                 toolbar_cancel_button_style=(
                     'close' if auxiliary_style else 'back'
                 ),
@@ -117,6 +115,7 @@ class LeagueRankWindow(bui.MainWindow):
         else:
             self._back_button = bui.buttonwidget(
                 parent=self._root_widget,
+                id=f'{self.main_window_id_prefix}|back',
                 position=(75 + x_inset, yoffs - 60),
                 size=(60, 55),
                 scale=1.2,
@@ -133,6 +132,40 @@ class LeagueRankWindow(bui.MainWindow):
                 edit=self._root_widget,
                 cancel_button=self._back_button,
                 selected_child=self._back_button,
+            )
+
+        self._scrollwidget = bui.scrollwidget(
+            parent=self._root_widget,
+            highlight=False,
+            size=(self._scroll_width, self._scroll_height),
+            position=(
+                self._width * 0.5 - self._scroll_width * 0.5,
+                scroll_bottom,
+            ),
+            center_small_content=True,
+            center_small_content_horizontally=True,
+            border_opacity=0.4,
+        )
+        bui.widget(edit=self._scrollwidget, autoselect=True)
+        bui.containerwidget(edit=self._scrollwidget, claims_left_right=True)
+
+        # With full-screen scrolling, fade content as it approaches
+        # toolbars.
+        if uiscale is bui.UIScale.SMALL:
+            scroll_fade_top(
+                self._root_widget,
+                self._width * 0.5 - self._scroll_width * 0.5,
+                scroll_bottom,
+                self._scroll_width,
+                self._scroll_height,
+                yscale=0.5,
+            )
+            scroll_fade_bottom(
+                self._root_widget,
+                self._width * 0.5 - self._scroll_width * 0.5,
+                scroll_bottom,
+                self._scroll_width,
+                self._scroll_height,
             )
 
         self._title_text = bui.textwidget(
@@ -153,27 +186,17 @@ class LeagueRankWindow(bui.MainWindow):
             v_align='center',
         )
 
-        self._scrollwidget = bui.scrollwidget(
-            parent=self._root_widget,
-            highlight=False,
-            size=(self._scroll_width, self._scroll_height),
-            position=(
-                self._width * 0.5 - self._scroll_width * 0.5,
-                scroll_bottom,
-            ),
-            center_small_content=True,
-            center_small_content_horizontally=True,
-            border_opacity=0.4,
-        )
-        bui.widget(edit=self._scrollwidget, autoselect=True)
-        bui.containerwidget(edit=self._scrollwidget, claims_left_right=True)
-
         self._last_power_ranking_query_time: float | None = None
         self._doing_power_ranking_query = False
 
         self._subcontainer: bui.Widget | None = None
         self._subcontainerwidth = 1024
         self._subcontainerheight = 573
+
+        # For fullscreen scrollable, account for toolbar.
+        if uiscale is bui.UIScale.SMALL:
+            self._subcontainerheight += 53
+
         self._power_ranking_score_widgets: list[bui.Widget] = []
 
         self._season_popup_menu: PopupMenu | None = None
@@ -185,7 +208,6 @@ class LeagueRankWindow(bui.MainWindow):
         self._account_state = plus.get_v1_account_state()
 
         self._refresh()
-        self._restore_state()
 
         # If we've got cached power-ranking data already, display it.
         assert bui.app.classic is not None
@@ -209,8 +231,8 @@ class LeagueRankWindow(bui.MainWindow):
         )
 
     @override
-    def on_main_window_close(self) -> None:
-        self._save_state()
+    def main_window_should_preserve_selection(self) -> bool:
+        return True
 
     def _on_achievements_press(self) -> None:
         from bauiv1lib.achievements import AchievementsWindow
@@ -221,7 +243,9 @@ class LeagueRankWindow(bui.MainWindow):
         if self._season == 'a' or self._is_current_season:
             prab = self._power_ranking_achievements_button
             assert prab is not None
-            self.main_window_replace(AchievementsWindow(origin_widget=prab))
+            self.main_window_replace(
+                lambda: AchievementsWindow(origin_widget=prab)
+            )
         else:
             bui.screenmessage(
                 bui.Lstr(
@@ -317,9 +341,6 @@ class LeagueRankWindow(bui.MainWindow):
         self._league_rank_data = copy.deepcopy(data)
         self._update_for_league_rank_data(data)
 
-    def _restore_state(self) -> None:
-        pass
-
     def _update(self, show: bool = False) -> None:
         plus = bui.app.plus
         assert plus is not None
@@ -330,7 +351,6 @@ class LeagueRankWindow(bui.MainWindow):
         account_state = plus.get_v1_account_state()
         if account_state != self._account_state:
             self._account_state = account_state
-            self._save_state()
             self._refresh()
 
             # And power ranking too.
@@ -384,6 +404,11 @@ class LeagueRankWindow(bui.MainWindow):
 
         v -= 0
 
+        # For fullscreen scrollable, account for toolbar.
+        uiscale = bui.app.ui_v1.uiscale
+        if uiscale is bui.UIScale.SMALL:
+            v -= 52
+
         h2 = 80
         v2 = v - 60
         worth_color = (0.6, 0.6, 0.65)
@@ -410,6 +435,7 @@ class LeagueRankWindow(bui.MainWindow):
 
         self._power_ranking_achievements_button = bui.buttonwidget(
             parent=w_parent,
+            id=f'{self.main_window_id_prefix}|ach',
             position=(self._xoffs + h2 - 60, v2 + 10),
             size=(200, 80),
             icon=bui.gettexture('achievementsIcon'),
@@ -440,6 +466,7 @@ class LeagueRankWindow(bui.MainWindow):
 
         self._power_ranking_trophies_button = bui.buttonwidget(
             parent=w_parent,
+            id=f'{self.main_window_id_prefix}|trophies',
             position=(self._xoffs + h2 - 60, v2 + 10),
             size=(200, 80),
             icon=bui.gettexture('medalSilver'),
@@ -484,6 +511,7 @@ class LeagueRankWindow(bui.MainWindow):
         if plus.get_v1_account_misc_read_val('act', False):
             self._activity_mult_button = bui.buttonwidget(
                 parent=w_parent,
+                id=f'{self.main_window_id_prefix}|amult',
                 position=(self._xoffs + h2 - 60, v2 + 10),
                 size=(200, 60),
                 icon=bui.gettexture('heart'),
@@ -515,6 +543,7 @@ class LeagueRankWindow(bui.MainWindow):
 
         self._up_to_date_bonus_button = bui.buttonwidget(
             parent=w_parent,
+            id=f'{self.main_window_id_prefix}|uptodatebonus',
             position=(self._xoffs + h2 - 60, v2 + 10),
             size=(200, 60),
             icon=bui.gettexture('logo'),
@@ -712,6 +741,7 @@ class LeagueRankWindow(bui.MainWindow):
 
         self._see_more_button = bui.buttonwidget(
             parent=w_parent,
+            id=f'{self.main_window_id_prefix}|seemore',
             label=self._rdict.seeMoreText,
             position=(self._xoffs + h, v),
             color=(0.5, 0.5, 0.6),
@@ -811,6 +841,11 @@ class LeagueRankWindow(bui.MainWindow):
         self._season = data['s'] if data is not None else None
 
         v = self._subcontainerheight - 20
+        # For fullscreen scrollable, account for toolbar.
+        uiscale = bui.app.ui_v1.uiscale
+        if uiscale is bui.UIScale.SMALL:
+            v -= 52
+
         popup_was_selected = False
         if self._season_popup_menu is not None:
             btn = self._season_popup_menu.get_button()
@@ -853,6 +888,7 @@ class LeagueRankWindow(bui.MainWindow):
             assert self._subcontainer
             self._season_popup_menu = PopupMenu(
                 parent=self._subcontainer,
+                button_id=f'{self.main_window_id_prefix}|season',
                 position=(self._xoffs + 390, v - 45),
                 width=150,
                 button_size=(200, 50),
@@ -1160,6 +1196,9 @@ class LeagueRankWindow(bui.MainWindow):
                 v_align='center',
                 scale=0.9,
             )
+            # Giving these ids doesn't work cleanly with sel
+            # save/restore due to refreshing, so let's just not for now.
+            bui.widget(edit=txt, allow_preserve_selection=False)
             self._power_ranking_score_widgets.append(txt)
             bui.textwidget(
                 edit=txt,
@@ -1187,6 +1226,3 @@ class LeagueRankWindow(bui.MainWindow):
         self._requested_season = value
         self._last_power_ranking_query_time = None  # Update asap.
         self._update(show=True)
-
-    def _save_state(self) -> None:
-        pass

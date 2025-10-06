@@ -1,4 +1,83 @@
-### 1.7.51 (build 22535, api 9, 2025-09-06)
+### 1.7.53 (build 22573, api 9, 2025-10-03)
+
+### 1.7.52 (build 22572, api 9, 2025-10-03)
+- Empty version number bump.
+
+### 1.7.51 (build 22569, api 9, 2025-10-03)
+- Deprecated `bauiv1.uicleanupcheck()` - to be removed when api 9 support ends.
+  Use `ba*.app.ui_v1.add_ui_cleanup_check()` instead.
+- Official Mac builds now use OpenALSoft for audio instead of Apple's old
+  bundled OpenAL. Something seems to be broken in the bundled one in macOS Tahoe
+  26.0 causing all of our mono sounds to not play. Weird. It's probably not a
+  bad idea to be using OpenALSoft here anyway since Apple considers theirs
+  deprecated.
+- Related to the above, modified CMakeLists.txt so Mac cmake builds will use
+  homebrew OpenAL Soft instead of Apple's. This means you need to do a `brew
+  install openal-soft` before compiling cmake builds on Mac.
+- While I was in CMakeLists.txt, went ahead and cleaned everything up and
+  modernized it. Please holler if you get build failures with CMake (especially
+  if it worked before).
+- Nitpicky fix: hitting 'OK' to quit on desktop no longer fades back in
+  momentarily before fading out to quit.
+- Updated various scrollable UIs such as the co-op game browser to fade content
+  at the top instead of showing the scroll-box edge when in small ui-mode
+  (phones). This keeps the UI a bit cleaner looking.
+- `ba*.app.mode` now raises `ValueError` if no app-mode is set instead of
+  returning None (This should generally never happen in practice).
+- Added `ba*.app.ui_v1.auxiliary_window_activate()` which formalizes the process
+  for navigating to or from auxiliary main-windows (store, account-settings,
+  etc.).
+- Added `AppMode.get_dev_console_tab_buttons()` for exposing new buttons in the
+  UI dev-console tab.
+- Classic app-mode now provides a 'MainWindow Template' button in the UI
+  dev-console. This brings up `bauiv1lib.template.MainWindowTemplate` which is a
+  minimal example of a well-behaved main-window (handy as a starting point for
+  custom main-windows).
+- Added `bauiv1.get_selected_widget()` which returns the globally selected
+  widget (if there is one).
+- Added the `ba.ui` log. Flip this to debug mode to show various ui related
+  stuff (currently mostly about widget ids).
+- (Hopefully) fixes an issue where extremely busy servers could effectively just
+  break. I had recently added code to drop outgoing messages if the buffer of
+  outbound messages got too big, but I think this has lead to a pathology where
+  the app then starts to try to re-send these dropped messages which further
+  floods the buffer. I've reverted to the old behavior of warning in such cases
+  but not clamping.
+- The `back_state` arg to `ba*.ui_v1.set_main_window()` no longer has a default
+  value and must be passed explicitly. This technically may break code, but
+  generally one should not be calling this function directly anyway so hopefully
+  the impact is minimal.
+- The `MainWindow.main_window_replace()` method now takes a callable to generate
+  a `MainWindow` instead of taking a `MainWindow` directly. The old form is
+  still accepted for now but will generate a warning and will be removed once
+  api 9 support ends. Generally this just means
+  `main_window_replace(MyWin(some_arg))` needs to become
+  `main_window_replace(lambda: MyWin(some_arg))`. A nice side-effect of this
+  change is that it is no longer necessary to check
+  `self.main_window_has_control()` before calling `main_window_replace()` (since
+  it can now do that itself internally and simply not call your create method if
+  your window is not in control).
+- `str()` for a `bauiv1.Widget` now includes the filename/line where the widget
+  was created which should be useful for debugging.
+- Automatic selection save/restore for `MainWindow` classes now works. This
+  should let us clear up a lot of boilerplate code doing this manually and also
+  means we can restore selections that were outside of the window (global
+  toolbars, etc). So if you select the settings button and hit return to invoke
+  settings and then press escape to go back, the settings button will now be
+  properly reselected instead of some widget in the previous window. To add
+  automatic selection save/restore to a main-window you just need to override
+  `main_window_should_preserve_selection()` to return True and ensure all your
+  selectable widgets have unique ids. See `bauiv1lib.template` for an example.
+- Cleaned up UI event routing a bit. Pressing escape/back while a toolbar button
+  is selected will now do the right thing and cancel out of the current window
+  on medium/large UI scales (previously this only worked right on small ui
+  scale).
+- Added `bauiv1.Widget.scroll_into_view()`. This should be more foolproof than
+  setting `visible_child` on a container widget, as it should properly affect
+  multiple levels of containers if need be.
+- Converted all existing UIs to use auto selection save/restore. Please holler
+  if you find something that seems broken or see any warnings logged while
+  navigating the UI.
 
 ### 1.7.50 (build 22533, api 9, 2025-09-06)
 - Cleaned up cursor handling on Mac build. Fixes an issue where the cursor could

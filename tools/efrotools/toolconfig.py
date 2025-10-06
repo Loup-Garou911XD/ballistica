@@ -115,7 +115,7 @@ def _filter_tool_config(projroot: Path, cfg: str) -> str:
             '             :pylsp_mypy (:enabled t\n'
             '                          :live_mode :json-false\n'
             '                          :report_progress t\n'
-            '                          :dmypy :json-false))))))))\n',
+            '                          :dmypy t))))))))\n',
         )
 
     # Stick project-root wherever they want.
@@ -183,6 +183,7 @@ def _filter_tool_config(projroot: Path, cfg: str) -> str:
     strict_equality = True
     local_partial_types = True
     no_implicit_reexport = True
+    fixed_format_cache = True
 
     enable_error_code = redundant-expr, truthy-bool, \
 truthy-function, unused-awaitable, explicit-override

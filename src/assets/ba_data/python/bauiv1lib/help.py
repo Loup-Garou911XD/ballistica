@@ -91,6 +91,7 @@ class HelpWindow(bui.MainWindow):
         else:
             btn = bui.buttonwidget(
                 parent=self._root_widget,
+                id=f'{self.main_window_id_prefix}|back',
                 position=(50, yoffs - 45),
                 size=(60, 55),
                 scale=0.8,
@@ -117,7 +118,6 @@ class HelpWindow(bui.MainWindow):
                 edit=self._scrollwidget,
                 left_widget=bui.get_special_widget('back_button'),
             )
-
         bui.widget(
             edit=self._scrollwidget,
             right_widget=bui.get_special_widget('squad_button'),
@@ -143,6 +143,7 @@ class HelpWindow(bui.MainWindow):
 
         self._subcontainer = bui.containerwidget(
             parent=self._scrollwidget,
+            id=f'{self.main_window_id_prefix}|sub',
             size=(self._sub_width, self._sub_height),
             background=False,
             claims_left_right=False,
@@ -174,7 +175,8 @@ class HelpWindow(bui.MainWindow):
         )
 
         spacing = 1.0
-        h = self._sub_width * 0.5
+        baseh = self._sub_width * 0.5
+        h = baseh + 30
         v = self._sub_height - 55
         if uiscale is bui.UIScale.SMALL:
             v -= inline_title_height
@@ -217,6 +219,7 @@ class HelpWindow(bui.MainWindow):
             position=(hval2 - 0.5 * icon_size, v - 0.45 * icon_size),
             texture=logo_tex,
         )
+        h = baseh
 
         app = bui.app
         assert app.classic is not None
@@ -283,6 +286,8 @@ class HelpWindow(bui.MainWindow):
             v_align='center',
             flatness=1.0,
         )
+
+        h = baseh + 20
 
         v -= spacing * 40.0
         txt_scale = 0.74
@@ -373,6 +378,8 @@ class HelpWindow(bui.MainWindow):
 
         v -= spacing * 150.0
 
+        h = baseh + 30
+
         txt = bui.Lstr(resource=f'{self._r}.controlsText').evaluate()
         txt_scale = 1.4
         txt_maxwidth = 480
@@ -404,6 +411,8 @@ class HelpWindow(bui.MainWindow):
         )
 
         v -= spacing * 45.0
+
+        h = baseh
 
         txt_scale = 0.7
         txt = bui.Lstr(
@@ -557,6 +566,8 @@ class HelpWindow(bui.MainWindow):
 
         v -= spacing * 280.0
 
+        h = baseh + 30
+
         txt = bui.Lstr(resource=f'{self._r}.powerupsText').evaluate()
         txt_scale = 1.4
         txt_maxwidth = 480
@@ -585,6 +596,8 @@ class HelpWindow(bui.MainWindow):
             texture=logo_tex,
         )
 
+        h = baseh + 20
+
         v -= spacing * 50.0
         txt_scale = getres(f'{self._r}.powerupsSubtitleTextScale')
         txt = bui.Lstr(resource=f'{self._r}.powerupsSubtitleText').evaluate()
@@ -600,6 +613,8 @@ class HelpWindow(bui.MainWindow):
             v_align='center',
             flatness=1.0,
         )
+
+        h = baseh + 20
 
         v -= spacing * 1.0
 
@@ -670,7 +685,7 @@ class HelpWindow(bui.MainWindow):
                 position=(h + mm3, v),
                 size=(0, 0),
                 scale=txt_scale,
-                maxwidth=300,
+                maxwidth=290,
                 flatness=1.0,
                 text=txtl,
                 h_align='left',
@@ -691,3 +706,7 @@ class HelpWindow(bui.MainWindow):
                 transition=transition, origin_widget=origin_widget
             )
         )
+
+    @override
+    def main_window_should_preserve_selection(self) -> bool:
+        return True

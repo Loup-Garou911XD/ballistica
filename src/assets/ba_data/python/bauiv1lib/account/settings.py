@@ -13,6 +13,7 @@ from bacommon.login import LoginType
 import bacommon.cloud
 import bauiv1 as bui
 
+from bauiv1lib.utils import scroll_fade_bottom, scroll_fade_top
 from bauiv1lib.connectivity import wait_for_connectivity
 
 
@@ -90,6 +91,11 @@ class AccountSettingsWindow(bui.MainWindow):
         self._scroll_height = target_height - 33
         scroll_bottom = yoffs - 61 - self._scroll_height
 
+        # Go with full-screen scrollable area in small ui.
+        if uiscale is bui.UIScale.SMALL:
+            self._scroll_height += 35
+            scroll_bottom -= 3
+
         self._sign_in_button = None
         self._sign_in_text = None
 
@@ -115,7 +121,7 @@ class AccountSettingsWindow(bui.MainWindow):
         super().__init__(
             root_widget=bui.containerwidget(
                 size=(self._width, self._height),
-                toolbar_visibility=('menu_full'),
+                toolbar_visibility='menu_full',
                 toolbar_cancel_button_style=(
                     'close' if auxiliary_style else 'back'
                 ),
@@ -134,6 +140,7 @@ class AccountSettingsWindow(bui.MainWindow):
         else:
             self._back_button = btn = bui.buttonwidget(
                 parent=self._root_widget,
+                id=f'{self.main_window_id_prefix}|back',
                 position=(51, yoffs - 52.0),
                 size=(60, 56),
                 scale=0.8,
@@ -148,6 +155,37 @@ class AccountSettingsWindow(bui.MainWindow):
                 ),
             )
             bui.containerwidget(edit=self._root_widget, cancel_button=btn)
+
+        self._scrollwidget = bui.scrollwidget(
+            parent=self._root_widget,
+            highlight=False,
+            size=(self._scroll_width, self._scroll_height),
+            position=(
+                self._width * 0.5 - self._scroll_width * 0.5,
+                scroll_bottom,
+            ),
+            claims_left_right=True,
+            selection_loops_to_parent=True,
+            border_opacity=0.4,
+        )
+
+        # With full-screen scrolling, fade content as it approaches
+        # toolbars.
+        if uiscale is bui.UIScale.SMALL:
+            scroll_fade_top(
+                self._root_widget,
+                self._width * 0.5 - self._scroll_width * 0.5,
+                scroll_bottom,
+                self._scroll_width,
+                self._scroll_height,
+            )
+            scroll_fade_bottom(
+                self._root_widget,
+                self._width * 0.5 - self._scroll_width * 0.5,
+                scroll_bottom,
+                self._scroll_width,
+                self._scroll_height,
+            )
 
         titleyoffs = -45.0 if uiscale is bui.UIScale.SMALL else -28.0
         titlescale = 0.7 if uiscale is bui.UIScale.SMALL else 1.0
@@ -166,21 +204,8 @@ class AccountSettingsWindow(bui.MainWindow):
             v_align='center',
         )
 
-        self._scrollwidget = bui.scrollwidget(
-            parent=self._root_widget,
-            highlight=False,
-            size=(self._scroll_width, self._scroll_height),
-            position=(
-                self._width * 0.5 - self._scroll_width * 0.5,
-                scroll_bottom,
-            ),
-            claims_left_right=True,
-            selection_loops_to_parent=True,
-            border_opacity=0.4,
-        )
         self._subcontainer: bui.Widget | None = None
         self._refresh()
-        self._restore_state()
 
     @override
     def get_main_window_state(self) -> bui.MainWindowState:
@@ -193,8 +218,8 @@ class AccountSettingsWindow(bui.MainWindow):
         )
 
     @override
-    def on_main_window_close(self) -> None:
-        self._save_state()
+    def main_window_should_preserve_selection(self) -> bool:
+        return True
 
     def _update(self) -> None:
         plus = bui.app.plus
@@ -399,6 +424,12 @@ class AccountSettingsWindow(bui.MainWindow):
         if self._subcontainer is not None:
             self._subcontainer.delete()
         self._sub_height = 90.0
+
+        # For fullscreen scrollable, account for toolbar.
+        uiscale = bui.app.ui_v1.uiscale
+        if uiscale is bui.UIScale.SMALL:
+            self._sub_height += 35
+
         if show_signed_in_as:
             self._sub_height += signed_in_as_space
         self._sub_height += via_space * len(via_lines)
@@ -448,6 +479,10 @@ class AccountSettingsWindow(bui.MainWindow):
 
         first_selectable = None
         v = self._sub_height - 10.0
+
+        # For fullscreen scrollable, account for toolbar.
+        if uiscale is bui.UIScale.SMALL:
+            v -= 35
 
         assert bui.app.classic is not None
         self._account_name_text: bui.Widget | None
@@ -580,8 +615,9 @@ class AccountSettingsWindow(bui.MainWindow):
         if show_google_play_sign_in_button:
             button_width = 350
             v -= sign_in_button_space
-            self._sign_in_google_play_button = btn = bui.buttonwidget(
+            btn = bui.buttonwidget(
                 parent=self._subcontainer,
+                id=f'{self.main_window_id_prefix}|signingoogleplay',
                 position=((self._sub_width - button_width) * 0.5, v - 20),
                 autoselect=True,
                 size=(button_width, 60),
@@ -620,8 +656,9 @@ class AccountSettingsWindow(bui.MainWindow):
         if show_game_center_sign_in_button:
             button_width = 350
             v -= sign_in_button_space
-            self._sign_in_google_play_button = btn = bui.buttonwidget(
+            btn = bui.buttonwidget(
                 parent=self._subcontainer,
+                id=f'{self.main_window_id_prefix}|signingamecenter',
                 position=((self._sub_width - button_width) * 0.5, v - 20),
                 autoselect=True,
                 size=(button_width, 60),
@@ -662,6 +699,7 @@ class AccountSettingsWindow(bui.MainWindow):
             v -= sign_in_button_space
             self._sign_in_v2_proxy_button = btn = bui.buttonwidget(
                 parent=self._subcontainer,
+                id=f'{self.main_window_id_prefix}|signinv2',
                 position=((self._sub_width - button_width) * 0.5, v - 20),
                 autoselect=True,
                 size=(button_width, 60),
@@ -729,6 +767,7 @@ class AccountSettingsWindow(bui.MainWindow):
             v -= sign_in_button_space + deprecated_space
             self._sign_in_device_button = btn = bui.buttonwidget(
                 parent=self._subcontainer,
+                id=f'{self.main_window_id_prefix}|signindevice',
                 position=((self._sub_width - button_width) * 0.5, v - 20),
                 autoselect=True,
                 size=(button_width, 60),
@@ -816,6 +855,7 @@ class AccountSettingsWindow(bui.MainWindow):
             v -= manage_account_button_space
             self._manage_button = btn = bui.buttonwidget(
                 parent=self._subcontainer,
+                id=f'{self.main_window_id_prefix}|manage',
                 position=((self._sub_width - button_width) * 0.5, v),
                 autoselect=True,
                 size=(button_width, 60),
@@ -837,6 +877,7 @@ class AccountSettingsWindow(bui.MainWindow):
             v -= create_account_button_space
             self._create_button = btn = bui.buttonwidget(
                 parent=self._subcontainer,
+                id=f'{self.main_window_id_prefix}|create',
                 position=((self._sub_width - button_width) * 0.5, v - 30),
                 autoselect=True,
                 size=(button_width, 60),
@@ -870,6 +911,7 @@ class AccountSettingsWindow(bui.MainWindow):
                 )
             self._game_center_button = btn = bui.buttonwidget(
                 parent=self._subcontainer,
+                id=f'{self.main_window_id_prefix}|gamecenter',
                 position=((self._sub_width - button_width) * 0.5, v),
                 color=(0.55, 0.5, 0.6),
                 textcolor=(0.75, 0.7, 0.8),
@@ -914,6 +956,7 @@ class AccountSettingsWindow(bui.MainWindow):
             v -= leaderboards_button_space
             self._leaderboards_button = btn = bui.buttonwidget(
                 parent=self._subcontainer,
+                id=f'{self.main_window_id_prefix}|leaderboards',
                 position=((self._sub_width - button_width) * 0.5, v),
                 color=(0.55, 0.5, 0.6),
                 textcolor=(0.75, 0.7, 0.8),
@@ -977,6 +1020,7 @@ class AccountSettingsWindow(bui.MainWindow):
             v -= sign_out_button_space
             self._sign_out_button = btn = bui.buttonwidget(
                 parent=self._subcontainer,
+                id=f'{self.main_window_id_prefix}|signout',
                 position=((self._sub_width - button_width) * 0.5, v),
                 size=(button_width, 60),
                 label=bui.Lstr(resource=f'{self._r}.signOutText'),
@@ -996,6 +1040,7 @@ class AccountSettingsWindow(bui.MainWindow):
             v -= cancel_sign_in_button_space
             self._cancel_sign_in_button = btn = bui.buttonwidget(
                 parent=self._subcontainer,
+                id=f'{self.main_window_id_prefix}|cancelsignin',
                 position=((self._sub_width - button_width) * 0.5, v),
                 size=(button_width, 60),
                 label=bui.Lstr(resource='cancelText'),
@@ -1015,6 +1060,7 @@ class AccountSettingsWindow(bui.MainWindow):
             v -= delete_account_button_space
             self._delete_account_button = btn = bui.buttonwidget(
                 parent=self._subcontainer,
+                id=f'{self.main_window_id_prefix}|deleteaccount',
                 position=((self._sub_width - button_width) * 0.5, v),
                 size=(button_width, 60),
                 label=bui.Lstr(resource=f'{self._r}.deleteAccountText'),
@@ -1354,34 +1400,6 @@ class AccountSettingsWindow(bui.MainWindow):
 
         assert self._sign_in_v2_proxy_button is not None
         V2ProxySignInWindow(origin_widget=self._sign_in_v2_proxy_button)
-
-    def _save_state(self) -> None:
-        try:
-            sel = self._root_widget.get_selected_child()
-            if sel == self._back_button:
-                sel_name = 'Back'
-            elif sel == self._scrollwidget:
-                sel_name = 'Scroll'
-            else:
-                raise ValueError('unrecognized selection')
-            assert bui.app.classic is not None
-            bui.app.ui_v1.window_states[type(self)] = sel_name
-        except Exception:
-            logging.exception('Error saving state for %s.', self)
-
-    def _restore_state(self) -> None:
-        try:
-            assert bui.app.classic is not None
-            sel_name = bui.app.ui_v1.window_states.get(type(self))
-            if sel_name == 'Back':
-                sel = self._back_button
-            elif sel_name == 'Scroll':
-                sel = self._scrollwidget
-            else:
-                sel = self._back_button
-            bui.containerwidget(edit=self._root_widget, selected_child=sel)
-        except Exception:
-            logging.exception('Error restoring state for %s.', self)
 
 
 def show_what_is_legacy_unlinking_page() -> None:

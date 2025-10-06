@@ -277,7 +277,7 @@ static auto PyButtonWidget(PyObject* self, PyObject* args, PyObject* keywds)
 
   // Set applicable values.
   if (id_obj != Py_None) {
-    b->set_id(Python::GetString(id_obj));
+    b->SetID(Python::GetString(id_obj));
   }
   if (label_obj != Py_None) {
     b->set_text(g_base->python->GetPyLString(label_obj));
@@ -591,7 +591,7 @@ static auto PyCheckBoxWidget(PyObject* self, PyObject* args, PyObject* keywds)
 
   // Set applicable values.
   if (id_obj != Py_None) {
-    widget->set_id(Python::GetString(id_obj));
+    widget->SetID(Python::GetString(id_obj));
   }
   if (size_obj != Py_None) {
     Point2D p = Python::GetPoint2D(size_obj);
@@ -669,6 +669,7 @@ static PyMethodDef PyCheckBoxWidgetDef = {
     "checkboxwidget(*,\n"
     "  edit: bauiv1.Widget | None = None,\n"
     "  parent: bauiv1.Widget | None = None,\n"
+    "  id: str | None = None,\n"
     "  size: Sequence[float] | None = None,\n"
     "  position: Sequence[float] | None = None,\n"
     "  text: str | bauiv1.Lstr | None = None,\n"
@@ -681,7 +682,8 @@ static PyMethodDef PyCheckBoxWidgetDef = {
     "  is_radio_button: bool | None = None,\n"
     "  maxwidth: float | None = None,\n"
     "  autoselect: bool | None = None,\n"
-    "  color: Sequence[float] | None = None) -> bauiv1.Widget\n"
+    "  color: Sequence[float] | None = None,\n"
+    ") -> bauiv1.Widget\n"
     "\n"
     "Create or edit a check-box widget.\n"
     "\n"
@@ -1002,6 +1004,7 @@ static auto PyColumnWidget(PyObject* self, PyObject* args, PyObject* keywds)
     -> PyObject* {
   BA_PYTHON_TRY;
 
+  PyObject* id_obj{Py_None};
   PyObject* size_obj{Py_None};
   PyObject* pos_obj{Py_None};
   PyObject* background_obj{Py_None};
@@ -1021,6 +1024,7 @@ static auto PyColumnWidget(PyObject* self, PyObject* args, PyObject* keywds)
   PyObject* claims_left_right_obj{Py_None};
   static const char* kwlist[] = {"edit",
                                  "parent",
+                                 "id",
                                  "size",
                                  "position",
                                  "background",
@@ -1037,8 +1041,8 @@ static auto PyColumnWidget(PyObject* self, PyObject* args, PyObject* keywds)
                                  "claims_left_right",
                                  nullptr};
   if (!PyArg_ParseTupleAndKeywords(
-          args, keywds, "|OOOOOOOOOOOOOOOO", const_cast<char**>(kwlist),
-          &edit_obj, &parent_obj, &size_obj, &pos_obj, &background_obj,
+          args, keywds, "|OOOOOOOOOOOOOOOOO", const_cast<char**>(kwlist),
+          &edit_obj, &parent_obj, &id_obj, &size_obj, &pos_obj, &background_obj,
           &selected_child_obj, &visible_child_obj, &single_depth_obj,
           &print_list_exit_instructions_obj, &left_border_obj, &top_border_obj,
           &bottom_border_obj, &selection_loops_to_parent_obj, &border_obj,
@@ -1074,6 +1078,9 @@ static auto PyColumnWidget(PyObject* self, PyObject* args, PyObject* keywds)
   }
 
   // Set applicable values.
+  if (id_obj != Py_None) {
+    widget->SetID(Python::GetString(id_obj));
+  }
   if (size_obj != Py_None) {
     Point2D p = Python::GetPoint2D(size_obj);
     widget->SetWidth(p.x);
@@ -1149,6 +1156,7 @@ static PyMethodDef PyColumnWidgetDef = {
     "columnwidget(*,\n"
     "  edit: bauiv1.Widget | None = None,\n"
     "  parent: bauiv1.Widget | None = None,\n"
+    "  id: str | None = None,\n"
     "  size: Sequence[float] | None = None,\n"
     "  position: Sequence[float] | None = None,\n"
     "  background: bool | None = None,\n"
@@ -1162,7 +1170,8 @@ static PyMethodDef PyColumnWidgetDef = {
     "  selection_loops_to_parent: bool | None = None,\n"
     "  border: float | None = None,\n"
     "  margin: float | None = None,\n"
-    "  claims_left_right: bool | None = None) -> bauiv1.Widget\n"
+    "  claims_left_right: bool | None = None,\n"
+    ") -> bauiv1.Widget\n"
     "\n"
     "Create or edit a column widget.\n"
     "\n"
@@ -1210,6 +1219,7 @@ static auto PyContainerWidget(PyObject* self, PyObject* args, PyObject* keywds)
   PyObject* on_select_call_obj{Py_None};
   PyObject* claim_outside_clicks_obj{Py_None};
   PyObject* darken_behind_obj{Py_None};
+  PyObject* darken_behind_is_permanent_obj{Py_None};
 
   static const char* kwlist[] = {"edit",
                                  "parent",
@@ -1244,10 +1254,11 @@ static auto PyContainerWidget(PyObject* self, PyObject* args, PyObject* keywds)
                                  "claim_outside_clicks",
                                  "claims_up_down",
                                  "darken_behind",
+                                 "darken_behind_is_permanent",
                                  nullptr};
 
   if (!PyArg_ParseTupleAndKeywords(
-          args, keywds, "|OOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO",
+          args, keywds, "|OOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO",
           const_cast<char**>(kwlist), &edit_obj, &parent_obj, &id_obj,
           &size_obj, &pos_obj, &background_obj, &selected_child_obj,
           &transition_obj, &cancel_button_obj, &start_button_obj,
@@ -1259,7 +1270,8 @@ static auto PyContainerWidget(PyObject* self, PyObject* args, PyObject* keywds)
           &always_highlight_obj, &selectable_obj,
           &scale_origin_stack_offset_obj, &toolbar_visibility_obj,
           &toolbar_cancel_button_style_obj, &on_select_call_obj,
-          &claim_outside_clicks_obj, &claims_up_down_obj, &darken_behind_obj)) {
+          &claim_outside_clicks_obj, &claims_up_down_obj, &darken_behind_obj,
+          &darken_behind_is_permanent_obj)) {
     return nullptr;
   }
 
@@ -1297,7 +1309,7 @@ static auto PyContainerWidget(PyObject* self, PyObject* args, PyObject* keywds)
 
     // Id needs to be set before adding to parent.
     if (id_obj != Py_None) {
-      widget->set_id(Python::GetString(id_obj));
+      widget->SetID(Python::GetString(id_obj));
     }
 
     g_ui_v1->AddWidget(widget.get(), parent_widget);
@@ -1487,6 +1499,10 @@ static auto PyContainerWidget(PyObject* self, PyObject* args, PyObject* keywds)
   if (darken_behind_obj != Py_None) {
     widget->set_darken_behind(Python::GetBool(darken_behind_obj));
   }
+  if (darken_behind_is_permanent_obj != Py_None) {
+    widget->set_darken_behind_is_permanent(
+        Python::GetBool(darken_behind_is_permanent_obj));
+  }
 
   // Run any calls built up by UI callbacks.
   ui_op_context.Finish();
@@ -1547,7 +1563,8 @@ static PyMethodDef PyContainerWidgetDef = {
     "  on_select_call: Callable[[], None] | None = None,\n"
     "  claim_outside_clicks: bool | None = None,\n"
     "  claims_up_down: bool | None = None,\n"
-    "  darken_behind: bool | None = None) -> bauiv1.Widget\n"
+    "  darken_behind: bool | None = None,\n"
+    "  darken_behind_is_permanent: bool | None = None) -> bauiv1.Widget\n"
     "\n"
     "Create or edit a container widget.\n"
     "\n"
@@ -1706,9 +1723,11 @@ static auto PyScrollWidget(PyObject* self, PyObject* args, PyObject* keywds)
   PyObject* claims_left_right_obj{Py_None};
   PyObject* claims_up_down_obj{Py_None};
   PyObject* autoselect_obj{Py_None};
+  PyObject* id_obj{Py_None};
 
   static const char* kwlist[] = {"edit",
                                  "parent",
+                                 "id",
                                  "size",
                                  "position",
                                  "background",
@@ -1728,8 +1747,8 @@ static auto PyScrollWidget(PyObject* self, PyObject* args, PyObject* keywds)
                                  nullptr};
 
   if (!PyArg_ParseTupleAndKeywords(
-          args, keywds, "|OOOOOOOOOOOOOOOOOO", const_cast<char**>(kwlist),
-          &edit_obj, &parent_obj, &size_obj, &pos_obj, &background_obj,
+          args, keywds, "|OOOOOOOOOOOOOOOOOOO", const_cast<char**>(kwlist),
+          &edit_obj, &parent_obj, &id_obj, &size_obj, &pos_obj, &background_obj,
           &selected_child_obj, &capture_arrows_obj, &on_select_call_obj,
           &center_small_content_obj, &center_small_content_horizontally_obj,
           &color_obj, &highlight_obj, &border_opacity_obj,
@@ -1823,6 +1842,9 @@ static auto PyScrollWidget(PyObject* self, PyObject* args, PyObject* keywds)
   if (autoselect_obj != Py_None) {
     widget->set_auto_select(Python::GetBool(autoselect_obj));
   }
+  if (id_obj != Py_None) {
+    widget->SetID(Python::GetString(id_obj));
+  }
 
   // If making a new widget add it at the end.
   if (edit_obj == Py_None) {
@@ -1845,6 +1867,7 @@ static PyMethodDef PyScrollWidgetDef = {
     "scrollwidget(*,\n"
     "  edit: bauiv1.Widget | None = None,\n"
     "  parent: bauiv1.Widget | None = None,\n"
+    "  id: str | None = None,\n"
     "  size: Sequence[float] | None = None,\n"
     "  position: Sequence[float] | None = None,\n"
     "  background: bool | None = None,\n"
@@ -1860,7 +1883,8 @@ static PyMethodDef PyScrollWidgetDef = {
     "  selection_loops_to_parent: bool | None = None,\n"
     "  claims_left_right: bool | None = None,\n"
     "  claims_up_down: bool | None = None,\n"
-    "  autoselect: bool | None = None) -> bauiv1.Widget\n"
+    "  autoselect: bool | None = None,\n"
+    ") -> bauiv1.Widget\n"
     "\n"
     "Create or edit a scroll widget.\n"
     "\n"
@@ -2087,9 +2111,11 @@ static auto PyTextWidget(PyObject* self, PyObject* args, PyObject* keywds)
   PyObject* adapter_finished_obj{Py_None};
   PyObject* glow_type_obj{Py_None};
   PyObject* allow_clear_button_obj{Py_None};
+  PyObject* id_obj{Py_None};
 
   static const char* kwlist[] = {"edit",
                                  "parent",
+                                 "id",
                                  "size",
                                  "position",
                                  "text",
@@ -2130,15 +2156,16 @@ static auto PyTextWidget(PyObject* self, PyObject* args, PyObject* keywds)
                                  "allow_clear_button",
                                  nullptr};
   if (!PyArg_ParseTupleAndKeywords(
-          args, keywds, "|OOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO",
-          const_cast<char**>(kwlist), &edit_obj, &parent_obj, &size_obj,
-          &pos_obj, &text_obj, &v_align_obj, &h_align_obj, &editable_obj,
-          &padding_obj, &on_return_press_call_obj, &on_activate_call_obj,
-          &selectable_obj, &query_obj, &max_chars_obj, &color_obj,
-          &click_activate_obj, &on_select_call_obj, &always_highlight_obj,
-          &draw_controller_obj, &scale_obj, &corner_scale_obj, &description_obj,
-          &transition_delay_obj, &maxwidth_obj, &max_height_obj, &flatness_obj,
-          &shadow_obj, &autoselect_obj, &rotate_obj, &enabled_obj,
+          args, keywds, "|OOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO",
+          const_cast<char**>(kwlist), &edit_obj, &parent_obj, &id_obj,
+          &size_obj, &pos_obj, &text_obj, &v_align_obj, &h_align_obj,
+          &editable_obj, &padding_obj, &on_return_press_call_obj,
+          &on_activate_call_obj, &selectable_obj, &query_obj, &max_chars_obj,
+          &color_obj, &click_activate_obj, &on_select_call_obj,
+          &always_highlight_obj, &draw_controller_obj, &scale_obj,
+          &corner_scale_obj, &description_obj, &transition_delay_obj,
+          &maxwidth_obj, &max_height_obj, &flatness_obj, &shadow_obj,
+          &autoselect_obj, &rotate_obj, &enabled_obj,
           &force_internal_editing_obj, &always_show_carat_obj, &big_obj,
           &extra_touch_border_scale_obj, &res_scale_obj, &query_max_chars_obj,
           &query_description_obj, &adapter_finished_obj, &glow_type_obj,
@@ -2369,6 +2396,9 @@ static auto PyTextWidget(PyObject* self, PyObject* args, PyObject* keywds)
   if (allow_clear_button_obj != Py_None) {
     widget->set_allow_clear_button(Python::GetBool(allow_clear_button_obj));
   }
+  if (id_obj != Py_None) {
+    widget->SetID(Python::GetString(id_obj));
+  }
 
   // If making a new widget, add it at the end.
   if (edit_obj == Py_None) {
@@ -2391,6 +2421,7 @@ static PyMethodDef PyTextWidgetDef = {
     "textwidget(*,\n"
     "  edit: bauiv1.Widget | None = None,\n"
     "  parent: bauiv1.Widget | None = None,\n"
+    "  id: str | None = None,\n"
     "  size: Sequence[float] | None = None,\n"
     "  position: Sequence[float] | None = None,\n"
     "  text: str | bauiv1.Lstr | None = None,\n"
@@ -2428,8 +2459,8 @@ static PyMethodDef PyTextWidgetDef = {
     "  query_description: bauiv1.Widget | None = None,\n"
     "  adapter_finished: bool | None = None,\n"
     "  glow_type: str | None = None,\n"
-    "  allow_clear_button: bool | None = None)\n"
-    "  -> bauiv1.Widget\n"
+    "  allow_clear_button: bool | None = None,\n"
+    ") -> bauiv1.Widget\n"
     "\n"
     "Create or edit a text widget.\n"
     "\n"
@@ -2455,6 +2486,7 @@ static auto PyWidgetCall(PyObject* self, PyObject* args, PyObject* keywds)
   PyObject* show_buffer_right_obj{Py_None};
   PyObject* depth_range_obj{Py_None};
   PyObject* autoselect_obj{Py_None};
+  PyObject* allow_preserve_selection_obj{Py_None};
 
   static const char* kwlist[] = {"edit",
                                  "up_widget",
@@ -2467,12 +2499,14 @@ static auto PyWidgetCall(PyObject* self, PyObject* args, PyObject* keywds)
                                  "show_buffer_right",
                                  "depth_range",
                                  "autoselect",
+                                 "allow_preserve_selection",
                                  nullptr};
   if (!PyArg_ParseTupleAndKeywords(
-          args, keywds, "O|OOOOOOOOOO", const_cast<char**>(kwlist), &edit_obj,
+          args, keywds, "O|OOOOOOOOOOO", const_cast<char**>(kwlist), &edit_obj,
           &up_widget_obj, &down_widget_obj, &left_widget_obj, &right_widget_obj,
           &show_buffer_top_obj, &show_buffer_bottom_obj, &show_buffer_left_obj,
-          &show_buffer_right_obj, &depth_range_obj, &autoselect_obj))
+          &show_buffer_right_obj, &depth_range_obj, &autoselect_obj,
+          &allow_preserve_selection_obj))
     return nullptr;
 
   if (!g_base->CurrentContext().IsEmpty()) {
@@ -2550,6 +2584,10 @@ static auto PyWidgetCall(PyObject* self, PyObject* args, PyObject* keywds)
   if (autoselect_obj != Py_None) {
     widget->set_auto_select(Python::GetBool(autoselect_obj));
   }
+  if (allow_preserve_selection_obj != Py_None) {
+    widget->set_allow_preserve_selection(
+        Python::GetBool(allow_preserve_selection_obj));
+  }
 
   // Run any calls built up by UI callbacks.
   ui_op_context.Finish();
@@ -2574,7 +2612,9 @@ static PyMethodDef PyWidgetDef = {
     "  show_buffer_left: float | None = None,\n"
     "  show_buffer_right: float | None = None,\n"
     "  depth_range: tuple[float, float] | None = None,\n"
-    "  autoselect: bool | None = None) -> None\n"
+    "  autoselect: bool | None = None,\n"
+    "  allow_preserve_selection: bool | None = None,\n"
+    ") -> None\n"
     "\n"
     "Edit common attributes of any widget.\n"
     "\n"
@@ -2592,17 +2632,9 @@ auto PyUIBounds(PyObject* self, PyObject* args, PyObject* keywds) -> PyObject* {
     return nullptr;
   }
   assert(g_base->graphics);
-  // Note: to be safe, we return our min guaranteed screen bounds; not our
-  // current (which can be bigger).
   float x, virtual_res_y;
-
-  // if (g_base->ui->scale() == UIScale::kSmall) {
-  //   x = 0.5f * kBaseVirtualResSmallX;
-  //   virtual_res_y = kBaseVirtualResSmallY;
-  // } else {
   x = 0.5f * base::kBaseVirtualResX;
   virtual_res_y = base::kBaseVirtualResY;
-  // }
   float y = 0.5f * virtual_res_y;
   return Py_BuildValue("(ffff)", -x, x, -y, y);
   BA_PYTHON_CATCH;
@@ -2615,12 +2647,10 @@ static PyMethodDef PyUIBoundsDef = {
 
     "uibounds() -> tuple[float, float, float, float]\n"
     "\n"
-    "(internal)\n"
+    "Returns ui-bounds values: (x-min, x-max, y-min, y-max).\n"
     "\n"
-    "Returns a tuple of 4 values: (x-min, x-max, y-min, y-max) "
-    "representing\n"
-    "the range of values that can be plugged into a root level\n"
-    "bauiv1.ContainerWidget's stack_offset value while guaranteeing that its\n"
+    "This is the range of values that can be plugged into 'stack_offset' for\n"
+    "a :meth:`bauiv1.containerwidget()` call while guaranteeing that its\n"
     "center remains onscreen.",
 };
 
@@ -2709,6 +2739,60 @@ static PyMethodDef PyGetSpecialWidgetDef = {
     "(internal)",
 };
 
+// ------------------------- get_selected_widget -------------------------------
+
+static auto PyGetSelectedWidget(PyObject* self) -> PyObject* {
+  BA_PYTHON_TRY;
+
+  BA_PRECONDITION(g_base->InLogicThread());
+  if (Widget* w = g_ui_v1->GetSelectedWidget()) {
+    return w->NewPyRef();
+  }
+  Py_RETURN_NONE;
+  BA_PYTHON_CATCH;
+}
+
+static PyMethodDef PyGetSelectedWidgetDef = {
+    "get_selected_widget",             // name
+    (PyCFunction)PyGetSelectedWidget,  // method
+    METH_NOARGS,                       // flags
+
+    "get_selected_widget() -> bauiv1.Widget | None\n"
+    "\n"
+    "Return the current globally selected widget, if any.",
+};
+
+// ----------------------------- widget_by_id ----------------------------------
+
+static auto PyWidgetByID(PyObject* self, PyObject* args, PyObject* keywds)
+    -> PyObject* {
+  BA_PYTHON_TRY;
+
+  const char* id;
+  static const char* kwlist[] = {"id", nullptr};
+  if (!PyArg_ParseTupleAndKeywords(args, keywds, "s",
+                                   const_cast<char**>(kwlist), &id)) {
+    return nullptr;
+  }
+  BA_PRECONDITION(g_base->InLogicThread());
+  Widget* w{g_ui_v1->WidgetByID(id)};
+  if (w != nullptr) {
+    return w->NewPyRef();
+  }
+  Py_RETURN_NONE;
+  BA_PYTHON_CATCH;
+}
+
+static PyMethodDef PyWidgetByIDDef = {
+    "widget_by_id",                // name
+    (PyCFunction)PyWidgetByID,     // method
+    METH_VARARGS | METH_KEYWORDS,  // flags
+
+    "widget_by_id(id: str) -> bauiv1.Widget | None\n"
+    "\n"
+    "Return a widget with the given ID, or None if there is none.",
+};
+
 // -------------------------- root_ui_back_press -------------------------------
 
 static auto PyRootUIBackPress(PyObject* self) -> PyObject* {
@@ -2727,7 +2811,9 @@ static PyMethodDef PyRootUIBackPressDef = {
     METH_NOARGS,                     // flags
     "root_ui_back_press() -> None\n"
     "\n"
-    "(internal)",
+    "Handle a press of the global back button.\n"
+    "\n"
+    ":meta private:",
 };
 
 // ----------------------------- is_available ----------------------------------
@@ -2745,15 +2831,13 @@ static auto PyIsAvailable(PyObject* self) -> PyObject* {
   BA_PYTHON_CATCH;
 }
 
-static PyMethodDef PyIsAvailableDef = {
-    "is_available",              // name
-    (PyCFunction)PyIsAvailable,  // method
-    METH_NOARGS,                 // flags
+static PyMethodDef PyIsAvailableDef = {"is_available",              // name
+                                       (PyCFunction)PyIsAvailable,  // method
+                                       METH_NOARGS,                 // flags
 
-    "is_available() -> bool\n"
-    "\n"
-    "(internal)",
-};
+                                       "is_available() -> bool\n"
+                                       "\n"
+                                       ":meta private:"};
 
 // --------------------------- on_ui_scale_change ------------------------------
 
@@ -2773,7 +2857,7 @@ static PyMethodDef PyOnUIScaleChangeDef = {
 
     "on_ui_scale_change() -> None\n"
     "\n"
-    "(internal)",
+    ":meta private:",
 };
 
 // ------------------------ root_ui_pause_updates ------------------------------
@@ -2853,6 +2937,8 @@ auto PythonMethodsUIV1::GetMethods() -> std::vector<PyMethodDef> {
   return {
       PyRootUIBackPressDef,
       PyGetSpecialWidgetDef,
+      PyGetSelectedWidgetDef,
+      PyWidgetByIDDef,
       PySetPartyWindowOpenDef,
       PyButtonWidgetDef,
       PyCheckBoxWidgetDef,
