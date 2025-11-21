@@ -66,6 +66,7 @@ class RespawnIcon:
             )
         )
 
+        assert self._image
         assert self._image.node
         bs.animate(self._image.node, 'opacity', {0.0: 0, 0.2: 0.7})
 
@@ -89,6 +90,7 @@ class RespawnIcon:
             )
         )
 
+        assert self._name
         assert self._name.node
         bs.animate(self._name.node, 'scale', {0: 0, 0.1: 0.5})
 
@@ -133,6 +135,7 @@ class RespawnIcon:
                 )
             )
 
+        assert self._text
         assert self._text.node
         bs.animate(self._text.node, 'scale', {0: 0, 0.1: 0.9})
         if self._dec_text:
@@ -142,7 +145,7 @@ class RespawnIcon:
         self._dec_timer: bs.Timer | None = None
         self._update()
         self._timer: bs.Timer | None = bs.Timer(
-            1.0, bs.WeakCall(self._update), repeat=True
+            1.0, bs.WeakCallStrict(self._update), repeat=True
         )
 
     @property
@@ -211,7 +214,7 @@ class RespawnIcon:
                     # Start the timer to tick down.
                     self._dec_timer = bs.Timer(
                         0.25,
-                        bs.WeakCall(self._dec_step, ['..', '.', '']),
+                        bs.WeakCallStrict(self._dec_step, ['..', '.', '']),
                         repeat=True,
                     )
         else:

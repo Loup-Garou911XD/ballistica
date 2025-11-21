@@ -27,6 +27,8 @@ class AllSettingsWindow(bui.MainWindow):
         # have a visual hitch when the user taps them.
         bui.app.threadpool.submit_no_wait(self._preload_modules)
 
+        self._uiopenstate = bui.UIOpenState('settings')
+
         bui.set_analytics_screen('Settings Window')
         assert bui.app.classic is not None
         uiscale = bui.app.ui_v1.uiscale
@@ -245,7 +247,10 @@ class AllSettingsWindow(bui.MainWindow):
         return bui.BasicMainWindowState(
             create_call=lambda transition, origin_widget: cls(
                 transition=transition, origin_widget=origin_widget
-            )
+            ),
+            # Keeps our icon glowing as long as this is in the back
+            # stack.
+            uiopenstate=self._uiopenstate,
         )
 
     @override

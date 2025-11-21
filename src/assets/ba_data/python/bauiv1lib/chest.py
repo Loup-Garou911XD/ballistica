@@ -11,6 +11,7 @@ from typing import override, TYPE_CHECKING
 
 from efro.util import strict_partial
 import bacommon.bs
+import bacommon.displayitem as ditm
 import bauiv1 as bui
 
 if TYPE_CHECKING:
@@ -37,6 +38,8 @@ class ChestWindow(bui.MainWindow):
     ):
         # pylint: disable=too-many-statements
         self._index = index
+
+        self._uiopenstate = bui.UIOpenState(f'classicchest{index}')
 
         # Get this loading before we need it.
         self._quote_bubble_tex = bui.gettexture('quoteBubble')
@@ -200,7 +203,7 @@ class ChestWindow(bui.MainWindow):
         with plus.accounts.primary:
             plus.cloud.send_message_cb(
                 bacommon.bs.ChestInfoMessage(chest_id=str(self._index)),
-                on_response=bui.WeakCall(self._on_chest_info_response),
+                on_response=bui.WeakCallPartial(self._on_chest_info_response),
             )
 
     @override
@@ -222,7 +225,7 @@ class ChestWindow(bui.MainWindow):
     def main_window_should_preserve_selection(self) -> bool:
         # This doesn't really benefit us since we do lots of widget
         # creates/destroys throughout our lifetime and also we're an
-        # auxliary window so should never need to restore toolbar
+        # auxiliary window so should never need to restore toolbar
         # selections.
         return False
 
@@ -261,7 +264,7 @@ class ChestWindow(bui.MainWindow):
         self._show_chest_actions(response.user_tokens, response.chest)
 
     def _on_chest_action_response(
-        self, response: bacommon.bs.ChestActionResponse | Exception
+        self, response: bacommon.cloud.ChestActionResponse | Exception
     ) -> None:
         assert self._action_in_flight  # Should be us.
         self._action_in_flight = False
@@ -342,11 +345,7 @@ class ChestWindow(bui.MainWindow):
             tint2_color=self._chestdisplayinfo.tint2,
         )
 
-        # Store the prize-sets so we can display odds/etc. Sort them
-        # with smallest weights first (higher visually == better).
-        # self._prizesets = sorted(
-        #     chest.prizesets, key=lambda s: s.weight, reverse=True
-        # )
+        # Store the prize-sets so we can display odds/etc.
         self._prizesets = chest.prizesets
 
         if chest.unlock_tokens > 0:
@@ -391,7 +390,9 @@ class ChestWindow(bui.MainWindow):
             self._time_string_timer = bui.AppTimer(
                 1.0,
                 repeat=True,
-                call=bui.WeakCall(self._update_time_display, chest.unlock_time),
+                call=bui.WeakCallStrict(
+                    self._update_time_display, chest.unlock_time
+                ),
             )
 
         # Allow watching an ad IF the server tells us we can AND we have
@@ -418,7 +419,7 @@ class ChestWindow(bui.MainWindow):
             label='',
             button_type='square',
             autoselect=True,
-            on_activate_call=bui.WeakCall(
+            on_activate_call=bui.WeakCallStrict(
                 self._open_press, user_tokens, chest.unlock_tokens
             ),
             enable_sound=False,
@@ -465,38 +466,41 @@ class ChestWindow(bui.MainWindow):
                     v_align='center',
                 )
             )
-            self._open_now_images.append(
-                bui.imagewidget(
-                    parent=self._root_widget,
-                    size=(iconsize, iconsize),
-                    position=(
-                        self._width * 0.5 - iconsize * 0.5 + boffsx,
-                        self._yoffs + bposy + bheight * 0.35,
-                    ),
-                    draw_controller=self._open_now_button,
-                    texture=bui.gettexture('coin'),
+            if bool(False):
+                pass
+            else:
+                self._open_now_images.append(
+                    bui.imagewidget(
+                        parent=self._root_widget,
+                        size=(iconsize, iconsize),
+                        position=(
+                            self._width * 0.5 - iconsize * 0.5 + boffsx,
+                            self._yoffs + bposy + bheight * 0.35,
+                        ),
+                        draw_controller=self._open_now_button,
+                        texture=bui.gettexture('coin'),
+                    )
                 )
-            )
-            self._open_now_texts.append(
-                bui.textwidget(
-                    parent=self._root_widget,
-                    text=bui.Lstr(
-                        resource='tokens.numTokensText',
-                        subs=[('${COUNT}', str(chest.unlock_tokens))],
-                    ),
-                    position=(
-                        self._width * 0.5 + boffsx,
-                        self._yoffs + bposy + bheight * 0.25,
-                    ),
-                    scale=0.65,
-                    color=(0, 1, 0),
-                    draw_controller=self._open_now_button,
-                    maxwidth=bwidth * 0.8,
-                    size=(0, 0),
-                    h_align='center',
-                    v_align='center',
+                self._open_now_texts.append(
+                    bui.textwidget(
+                        parent=self._root_widget,
+                        text=bui.Lstr(
+                            resource='tokens.numTokensText',
+                            subs=[('${COUNT}', str(chest.unlock_tokens))],
+                        ),
+                        position=(
+                            self._width * 0.5 + boffsx,
+                            self._yoffs + bposy + bheight * 0.25,
+                        ),
+                        scale=0.65,
+                        color=(0, 1, 0),
+                        draw_controller=self._open_now_button,
+                        maxwidth=bwidth * 0.8,
+                        size=(0, 0),
+                        h_align='center',
+                        v_align='center',
+                    )
                 )
-            )
         self._open_now_spinner = bui.spinnerwidget(
             parent=self._root_widget,
             position=(
@@ -531,7 +535,7 @@ class ChestWindow(bui.MainWindow):
                 label='',
                 button_type='square',
                 autoselect=True,
-                on_activate_call=bui.WeakCall(self._watch_ad_press),
+                on_activate_call=bui.WeakCallStrict(self._watch_ad_press),
                 enable_sound=False,
             )
             bui.imagewidget(
@@ -595,7 +599,7 @@ class ChestWindow(bui.MainWindow):
             self._open_me_flash_timer = bui.AppTimer(
                 0.05,
                 repeat=True,
-                call=bui.WeakCall(self._open_me_backing_update),
+                call=bui.WeakCallStrict(self._open_me_backing_update),
             )
             self._open_me_widgets.clear()
             self._open_me_widgets.append(self._open_me_backing)
@@ -608,7 +612,6 @@ class ChestWindow(bui.MainWindow):
                         value='*${A}',
                         subs=[('${A}', bui.Lstr(resource='openMeText'))],
                     ),
-                    # text=bui.Lstr(resource='openMeText'),
                     maxwidth=175,
                     scale=0.7,
                     color=(0, 1.0, 0.7, 1),
@@ -644,7 +647,9 @@ class ChestWindow(bui.MainWindow):
                 color=(0.0, 0.8, 0.5),
                 autoselect=True,
                 text_flatness=1.0,
-                on_activate_call=bui.WeakCall(self._stop_showing_open_me_press),
+                on_activate_call=bui.WeakCallStrict(
+                    self._stop_showing_open_me_press
+                ),
             )
             # Avoid depth issues with the quote-bubble image.
             bui.widget(edit=btn, depth_range=(0.1, 1.0))
@@ -794,10 +799,10 @@ class ChestWindow(bui.MainWindow):
 
             for item in p.contents:
                 x += 5.0
-                if isinstance(item.item, bacommon.bs.TicketsDisplayItem):
+                if isinstance(item.item, ditm.Tickets):
                     _mktxt(str(item.item.count))
                     _mkicon('tickets')
-                elif isinstance(item.item, bacommon.bs.TokensDisplayItem):
+                elif isinstance(item.item, ditm.Tokens):
                     _mktxt(str(item.item.count))
                     _mkicon('coin')
                 else:
@@ -807,7 +812,7 @@ class ChestWindow(bui.MainWindow):
                     descfin = bui.Lstr(
                         translate=('serverResponses', item.description)
                     ).evaluate()
-                    subs = (
+                    subs: list[str] = (
                         []
                         if item.description_subs is None
                         else item.description_subs
@@ -857,12 +862,12 @@ class ChestWindow(bui.MainWindow):
 
         with plus.accounts.primary:
             plus.cloud.send_message_cb(
-                bacommon.bs.ChestActionMessage(
+                bacommon.cloud.ChestActionMessage(
                     chest_id=str(self._index),
-                    action=bacommon.bs.ChestActionMessage.Action.UNLOCK,
+                    action=bacommon.cloud.ChestActionMessage.Action.UNLOCK,
                     token_payment=token_payment,
                 ),
-                on_response=bui.WeakCall(self._on_chest_action_response),
+                on_response=bui.WeakCallPartial(self._on_chest_action_response),
             )
 
         # Convey that something is in progress.
@@ -898,7 +903,7 @@ class ChestWindow(bui.MainWindow):
         self._action_in_flight = True
         bui.app.plus.ads.show_ad_2(
             'reduce_chest_wait',
-            on_completion_call=bui.WeakCall(self._watch_ad_complete),
+            on_completion_call=bui.WeakCallPartial(self._watch_ad_complete),
         )
 
         # Convey that something is in progress.
@@ -937,12 +942,12 @@ class ChestWindow(bui.MainWindow):
 
         with plus.accounts.primary:
             plus.cloud.send_message_cb(
-                bacommon.bs.ChestActionMessage(
+                bacommon.cloud.ChestActionMessage(
                     chest_id=str(self._index),
-                    action=bacommon.bs.ChestActionMessage.Action.AD,
+                    action=bacommon.cloud.ChestActionMessage.Action.AD,
                     token_payment=0,
                 ),
-                on_response=bui.WeakCall(self._on_chest_action_response),
+                on_response=bui.WeakCallPartial(self._on_chest_action_response),
             )
 
     def _reset(self) -> None:
@@ -972,9 +977,14 @@ class ChestWindow(bui.MainWindow):
             text=bui.Lstr(resource='chests.slotDescriptionText'),
             color=(1, 1, 1),
         )
+        # This is somewhat redundant with the close button, but we need
+        # to have *something* selectable in our window for SMALL ui-mode
+        # (when we don't have our own close button) otherwise we can be
+        # left unable to select anything.
+        self._show_done_button(use_ok_label=True)
 
     def _show_chest_contents(
-        self, response: bacommon.bs.ChestActionResponse
+        self, response: bacommon.cloud.ChestActionResponse
     ) -> float:
         # pylint: disable=too-many-locals
         # pylint: disable=too-many-statements
@@ -989,11 +999,7 @@ class ChestWindow(bui.MainWindow):
 
         # Insert test items for testing.
         if bool(False):
-            response.contents += [
-                bacommon.bs.DisplayItemWrapper.for_display_item(
-                    bacommon.bs.TestDisplayItem()
-                )
-            ]
+            response.contents += [ditm.Wrapper.for_item(ditm.Test())]
 
         tincr = 0.4
         tendoffs = tincr * 4.0
@@ -1035,7 +1041,7 @@ class ChestWindow(bui.MainWindow):
             sign = -sign
             bui.apptimer(
                 toffs,
-                bui.Call(
+                bui.CallStrict(
                     _set_img,
                     x=(
                         20.0
@@ -1082,7 +1088,7 @@ class ChestWindow(bui.MainWindow):
         )
 
         toffsopen = toffs
-        bui.apptimer(toffs, bui.WeakCall(self._show_chest_opening))
+        bui.apptimer(toffs, bui.WeakCallStrict(self._show_chest_opening))
         toffs += tincr * 1.0
         width = xspacing * 0.95
 
@@ -1102,11 +1108,12 @@ class ChestWindow(bui.MainWindow):
                         self._yoffs - 250.0,
                     ),
                     width=width,
+                    debug=False,
                 ),
             )
             xoffs += xspacing
         toffs += tincr
-        bui.apptimer(toffs, bui.WeakCall(self._show_done_button))
+        bui.apptimer(toffs, bui.WeakCallStrict(self._show_done_button))
 
         self._show_odds(initial_highlighted_row=-1)
 
@@ -1126,7 +1133,7 @@ class ChestWindow(bui.MainWindow):
             while toffs2 > 0.0:
                 bui.apptimer(
                     toffs2,
-                    bui.WeakCall(self._highlight_odds_row, i),
+                    bui.WeakCallStrict(self._highlight_odds_row, i),
                 )
                 toffs2 -= amt
                 if ease_out:
@@ -1184,7 +1191,7 @@ class ChestWindow(bui.MainWindow):
             # comes to rest before scale.
             bui.apptimer(
                 toffs,
-                bui.Call(
+                bui.CallStrict(
                     _set_img,
                     x=(
                         1.0
@@ -1204,7 +1211,7 @@ class ChestWindow(bui.MainWindow):
             initial_highlighted_extra=True,
         )
 
-    def _show_done_button(self) -> None:
+    def _show_done_button(self, use_ok_label: bool = False) -> None:
         # No-op if our ui is dead.
         if not self._root_widget:
             return
@@ -1219,33 +1226,10 @@ class ChestWindow(bui.MainWindow):
                 self._yoffs - 350,
             ),
             size=(bwidth, bheight),
-            label=bui.Lstr(resource='doneText'),
+            label=bui.Lstr(resource='okText' if use_ok_label else 'doneText'),
             autoselect=True,
             on_activate_call=self.main_window_back,
         )
         bui.containerwidget(
             edit=self._root_widget, selected_child=btn, start_button=btn
         )
-
-
-# Slight hack: we define window different classes for our different
-# chest slots so that the default UI behavior is to replace each other
-# when different ones are pressed. If they are all the same window class
-# then the default behavior for such presses is to toggle the existing
-# one back off.
-
-
-class ChestWindow0(ChestWindow):
-    """Child class of ChestWindow for slighty hackish reasons."""
-
-
-class ChestWindow1(ChestWindow):
-    """Child class of ChestWindow for slighty hackish reasons."""
-
-
-class ChestWindow2(ChestWindow):
-    """Child class of ChestWindow for slighty hackish reasons."""
-
-
-class ChestWindow3(ChestWindow):
-    """Child class of ChestWindow for slighty hackish reasons."""

@@ -585,8 +585,8 @@ class GamepadSettingsWindow(bui.MainWindow):
                 if 'analogStickUD' + self._ext in self._settings
                 else 6 if self._is_secondary else None
             )
-            assert isinstance(sval1, (int, type(None)))
-            assert isinstance(sval2, (int, type(None)))
+            assert isinstance(sval1, int | None)
+            assert isinstance(sval2, int | None)
             if sval1 is not None and sval2 is not None:
                 return (
                     self._inputdevice.get_axis_name(sval1)
@@ -630,7 +630,7 @@ class GamepadSettingsWindow(bui.MainWindow):
                 if 'dpad' + self._ext in self._settings
                 else 2 if self._is_secondary else None
             )
-            assert isinstance(dpadnum, (int, type(None)))
+            assert isinstance(dpadnum, int | None)
             if dpadnum is not None:
                 return bui.Lstr(
                     value='${A} ${B}',
@@ -811,7 +811,7 @@ class GamepadSettingsWindow(bui.MainWindow):
             self._textwidgets[button] = txt
             bui.buttonwidget(
                 edit=btn,
-                on_activate_call=bui.Call(
+                on_activate_call=bui.CallStrict(
                     AwaitGamepadInputWindow,
                     self._inputdevice,
                     button,
@@ -1037,9 +1037,11 @@ class AwaitGamepadInputWindow(bui.Window):
             text=str(self._counter),
         )
         self._decrement_timer: bui.AppTimer | None = bui.AppTimer(
-            1.0, bui.Call(self._decrement), repeat=True
+            1.0, bui.CallStrict(self._decrement), repeat=True
         )
-        bs.capture_game_controller_input(bui.WeakCall(self._event_callback))
+        bs.capture_game_controller_input(
+            bui.WeakCallPartial(self._event_callback)
+        )
 
     def die(self) -> None:
         """Kill the window."""

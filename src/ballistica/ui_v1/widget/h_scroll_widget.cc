@@ -9,15 +9,12 @@
 #include "ballistica/base/graphics/component/simple_component.h"
 #include "ballistica/base/support/app_timer.h"
 #include "ballistica/base/ui/ui.h"
-#include "ballistica/core/core.h"
-#include "ballistica/core/platform/core_platform.h"
 
 namespace ballistica::ui_v1 {
 
-const float kHMargin = 5.0f;
+static const float kMarginH{5.0f};
 
-HScrollWidget::HScrollWidget()
-    : touch_mode_(!g_core->platform->IsRunningOnDesktop()) {
+HScrollWidget::HScrollWidget() {
   set_draggable(false);
   set_claims_left_right(false);
 }
@@ -51,7 +48,7 @@ void HScrollWidget::ClampThumb_(bool velocity_clamp, bool position_clamp) {
   bool is_scrolling = (touch_held_ || !has_momentum_);
   float strong_force;
   float weak_force;
-  if (touch_mode_) {
+  if (g_base->ui->touch_mode()) {
     strong_force = -0.12f;
     weak_force = -0.004f;
   } else {
@@ -63,7 +60,7 @@ void HScrollWidget::ClampThumb_(bool velocity_clamp, bool position_clamp) {
     float child_w = (**i).GetWidth();
 
     if (velocity_clamp) {
-      if (child_offset_h_ < 0) {
+      if (child_offset_h_ < 0.0f) {
         // Even in velocity case do some sane clamping.
         float diff = child_offset_h_;
         inertia_scroll_rate_ +=
@@ -71,11 +68,12 @@ void HScrollWidget::ClampThumb_(bool velocity_clamp, bool position_clamp) {
         inertia_scroll_rate_ *= 0.9f;
 
       } else if (child_offset_h_
-                 > child_w - (width() - 2 * (border_width_ + kHMargin))) {
+                 > child_w - (width() - 2.0f * (border_width_ + kMarginH))) {
         float diff =
             child_offset_h_
             - (child_w
-               - std::min(child_w, (width() - 2 * (border_width_ + kHMargin))));
+               - std::min(child_w,
+                          (width() - 2.0f * (border_width_ + kMarginH))));
         inertia_scroll_rate_ +=
             diff * (is_scrolling ? strong_force : weak_force);
         inertia_scroll_rate_ *= 0.9f;
@@ -85,19 +83,20 @@ void HScrollWidget::ClampThumb_(bool velocity_clamp, bool position_clamp) {
     // Hard clipping if we're dragging the scrollbar.
     if (position_clamp) {
       if (child_offset_h_smoothed_
-          > child_w - (width() - 2 * (border_width_ + kHMargin))) {
+          > child_w - (width() - 2.0f * (border_width_ + kMarginH))) {
         child_offset_h_smoothed_ =
-            child_w - (width() - 2 * (border_width_ + kHMargin));
+            child_w - (width() - 2.0f * (border_width_ + kMarginH));
       }
-      if (child_offset_h_smoothed_ < 0) {
-        child_offset_h_smoothed_ = 0;
+      if (child_offset_h_smoothed_ < 0.0f) {
+        child_offset_h_smoothed_ = 0.0f;
       }
       if (child_offset_h_
-          > child_w - (width() - 2 * (border_width_ + kHMargin))) {
-        child_offset_h_ = child_w - (width() - 2 * (border_width_ + kHMargin));
+          > child_w - (width() - 2.0f * (border_width_ + kMarginH))) {
+        child_offset_h_ =
+            child_w - (width() - 2.0f * (border_width_ + kMarginH));
       }
-      if (child_offset_h_ < 0) {
-        child_offset_h_ = 0;
+      if (child_offset_h_ < 0.0f) {
+        child_offset_h_ = 0.0f;
       }
     }
   }
@@ -113,39 +112,61 @@ auto HScrollWidget::HandleMessage(const base::WidgetMessage& m) -> bool {
       claimed = true;
       pass = false;
       auto i = widgets().begin();
-      if (i == widgets().end()) break;
-      float child_w = (**i).GetWidth();
+      if (i == widgets().end()) {
+        break;
+      }
+      float scroll_child_width = (**i).GetWidth();
+
+      float target_x{m.fval1};
+      float target_width{m.fval3};
+
+      float vis_width{(width() - 2.0f * (border_width_ + kMarginH))};
+      bool changing{};
 
       // See where we'd have to scroll to get selection at left and right.
-      float child_offset_left =
-          child_w - m.fval1 - (width() - 2 * (border_width_ + kHMargin));
-      float child_offset_right = child_w - m.fval1 - m.fval3;
+      float child_offset_left = scroll_child_width - target_x - vis_width;
+      float child_offset_right = scroll_child_width - target_x - target_width;
 
-      // If we're in the middle, dont do anything.
-      if (child_offset_h_ > child_offset_left
-          && child_offset_h_ < child_offset_right) {
+      // If the area we're trying to show is bigger than the space we've got
+      // available, aim for the middle. Perhaps we should warn when this
+      // happens, but passing huge top+bottom show-buffers can also be a
+      // decent way to center the selection so maybe we shouldn't.
+      if (vis_width < target_width) {
+        child_offset_h_ = 0.5f * (child_offset_left + child_offset_right);
+        changing = true;
       } else {
-        float prev_child_offset = child_offset_h_;
-
-        // Do whatever offset is less of a move.
-        if (std::abs(child_offset_left - child_offset_h_)
-            < std::abs(child_offset_right - child_offset_h_)) {
-          child_offset_h_ = child_offset_left;
+        // If we're in the middle, dont do anything.
+        if (child_offset_h_ > child_offset_left
+            && child_offset_h_ < child_offset_right) {
         } else {
-          child_offset_h_ = child_offset_right;
-        }
+          // float prev_child_offset = child_offset_h_;
 
+          // Do whatever offset is less of a move.
+          if (std::abs(child_offset_left - child_offset_h_)
+              < std::abs(child_offset_right - child_offset_h_)) {
+            child_offset_h_ = child_offset_left;
+          } else {
+            child_offset_h_ = child_offset_right;
+          }
+          changing = true;
+        }
+      }
+
+      if (changing) {
         // If we're moving left, stop at the end.
         {
-          float max_val = child_w - (width() - 2 * (border_width_ + kHMargin));
+          float max_val = scroll_child_width
+                          - (width() - 2.0f * (border_width_ + kMarginH));
           if (child_offset_h_ > max_val) child_offset_h_ = max_val;
         }
 
-        // If we're moving right, stop at the top.
+        // If we're moving right, stop at the end.
         {
-          if (child_offset_h_ < prev_child_offset) {
-            if (child_offset_h_ < 0) child_offset_h_ = 0;
+          // if (child_offset_h_ < prev_child_offset) {
+          if (child_offset_h_ < 0.0f) {
+            child_offset_h_ = 0.0f;
           }
+          // }
         }
       }
 
@@ -166,7 +187,7 @@ auto HScrollWidget::HandleMessage(const base::WidgetMessage& m) -> bool {
       float y = m.fval2;
       bool claimed2 = (m.fval3 > 0.0f);
 
-      if (touch_mode_) {
+      if (g_base->ui->touch_mode()) {
         mouse_over_ = false;
       } else {
         mouse_over_ =
@@ -180,7 +201,7 @@ auto HScrollWidget::HandleMessage(const base::WidgetMessage& m) -> bool {
       if (claimed2) {
         mouse_over_thumb_ = false;
       } else {
-        if (touch_mode_) {
+        if (g_base->ui->touch_mode()) {
           if (touch_held_) {
             touch_x_ = x;
             touch_y_ = y;
@@ -229,7 +250,7 @@ auto HScrollWidget::HandleMessage(const base::WidgetMessage& m) -> bool {
           }
         }
 
-        if (touch_mode_) {
+        if (g_base->ui->touch_mode()) {
           mouse_over_thumb_ = false;
         } else {
           float s_right = width() - border_width_;
@@ -277,7 +298,7 @@ auto HScrollWidget::HandleMessage(const base::WidgetMessage& m) -> bool {
       mouse_held_page_down_ = false;
       mouse_held_page_up_ = false;
 
-      if (touch_mode_) {
+      if (g_base->ui->touch_mode()) {
         if (touch_held_) {
           bool m_claimed = (m.fval3 > 0.0f);
 
@@ -329,6 +350,11 @@ auto HScrollWidget::HandleMessage(const base::WidgetMessage& m) -> bool {
         pass = false;
         has_momentum_ = static_cast<bool>(m.fval4);
 
+        // Don't scroll if everything is visible.
+        if (amount_visible_ >= 1.0f) {
+          break;
+        }
+
         // We only set velocity from events when not in momentum mode; we
         // handle momentum ourself.
         if (std::abs(m.fval3) > 0.001f && !has_momentum_) {
@@ -354,8 +380,10 @@ auto HScrollWidget::HandleMessage(const base::WidgetMessage& m) -> bool {
                   child_offset_h_
                   - (child_h
                      - std::min(child_h,
-                                (width() - 2 * (border_width_ + kHMargin))));
-              if (diff > 0) past_end = true;
+                                (width() - 2.0f * (border_width_ + kMarginH))));
+              if (diff > 0.0f) {
+                past_end = true;
+              }
             }
             if (past_end) {
               new_val = scroll_speed * 0.1f * m.fval3;
@@ -378,9 +406,15 @@ auto HScrollWidget::HandleMessage(const base::WidgetMessage& m) -> bool {
     case base::WidgetMessage::Type::kMouseWheelH: {
       float x = m.fval1;
       float y = m.fval2;
-      if ((x >= 0.0f) && (x < width()) && (y >= 0.0f) && (y < height())) {
+      if (x >= 0.0f && x < width() && y >= 0.0f && y < height()) {
         claimed = true;
         pass = false;
+
+        // Don't scroll if everything is visible.
+        if (amount_visible_ >= 1.0f) {
+          break;
+        }
+
         inertia_scroll_rate_ -= m.fval3 * 0.003f;
         MarkForUpdate();
       } else {
@@ -395,10 +429,11 @@ auto HScrollWidget::HandleMessage(const base::WidgetMessage& m) -> bool {
       float y = m.fval2;
 
       // If its in our overall scroll region at all.
-      if ((y >= 0.0f) && (y < height()) && (x >= 0.0f) && (x < width())) {
-        // On touch devices, clicks begin scrolling, (and eventually can count
-        // as clicks if they don't move)
-        if (touch_mode_) {
+      if (y >= 0.0f && y < height() && x >= 0.0f && x < width()) {
+        // On touch devices, clicks begin scrolling, (and eventually can
+        // count as clicks if they don't move). Only if we're showing less
+        // than everything though.
+        if (g_base->ui->touch_mode() && amount_visible_ < 1.0f) {
           touch_held_ = true;
           auto click_count = static_cast<int>(m.fval3);
           touch_held_click_count_ = click_count;
@@ -434,24 +469,25 @@ auto HScrollWidget::HandleMessage(const base::WidgetMessage& m) -> bool {
           }
         }
 
-        // On desktop, allow clicking on the scrollbar.
-        if (!touch_mode_) {
+        // For mouse type devices, allow clicking on the scrollbar.
+        if (!g_base->ui->touch_mode()) {
           if (y <= scroll_bar_height_ + bottom_overlap) {
             claimed = true;
             pass = false;
 
-            float sRight = width() - border_width_;
-            float sLeft = border_width_;
+            float s_right = width() - border_width_;
+            float s_left = border_width_;
             float sb_thumb_width =
-                amount_visible_ * (width() - 2 * border_width_);
-            float sb_thumb_right = sRight
-                                   - child_offset_h_ / child_max_offset_
-                                         * (sRight - (sLeft + sb_thumb_width));
+                amount_visible_ * (width() - 2.0f * border_width_);
+            float sb_thumb_right =
+                s_right
+                - child_offset_h_ / child_max_offset_
+                      * (s_right - (s_left + sb_thumb_width));
 
             // To right of thumb (page-right).
             if (x >= sb_thumb_right) {
               smoothing_amount_ = 1.0f;  // So we can see the transition.
-              child_offset_h_ -= (width() - 2 * (border_width_ + kHMargin));
+              child_offset_h_ -= (width() - 2.0f * (border_width_ + kMarginH));
               MarkForUpdate();
               ClampThumb_(false, true);
             } else if (x >= sb_thumb_right - sb_thumb_width) {
@@ -459,10 +495,10 @@ auto HScrollWidget::HandleMessage(const base::WidgetMessage& m) -> bool {
               mouse_held_thumb_ = true;
               thumb_click_start_h_ = x;
               thumb_click_start_child_offset_h_ = child_offset_h_;
-            } else if (x >= sLeft) {
+            } else if (x >= s_left) {
               // To left of thumb (page left).
               smoothing_amount_ = 1.0f;  // So we can see the transition.
-              child_offset_h_ += (width() - 2 * (border_width_ + kHMargin));
+              child_offset_h_ += (width() - 2.0f * (border_width_ + kMarginH));
               MarkForUpdate();
               ClampThumb_(false, true);
             }
@@ -479,7 +515,9 @@ auto HScrollWidget::HandleMessage(const base::WidgetMessage& m) -> bool {
 
   // Normal container event handling.
   if (pass) {
-    if (ContainerWidget::HandleMessage(m)) claimed = true;
+    if (ContainerWidget::HandleMessage(m)) {
+      claimed = true;
+    }
   }
 
   // If it was a mouse-down and we claimed it, set ourself as selected.
@@ -495,37 +533,37 @@ void HScrollWidget::UpdateLayout() {
   // Move everything based on our offset.
   auto i = widgets().begin();
   if (i == widgets().end()) {
-    amount_visible_ = 0;
+    amount_visible_ = 0.0f;
     return;
   }
   float child_w = (**i).GetWidth();
-  child_max_offset_ = child_w - (width() - 2 * (border_width_ + kHMargin));
-  amount_visible_ = (width() - 2 * (border_width_ + kHMargin)) / child_w;
-  if (amount_visible_ > 1) {
-    amount_visible_ = 1;
+  child_max_offset_ = child_w - (width() - 2.0f * (border_width_ + kMarginH));
+  amount_visible_ = (width() - 2.0f * (border_width_ + kMarginH)) / child_w;
+  if (amount_visible_ > 1.0f) {
+    amount_visible_ = 1.0f;
     if (center_small_content_) {
       center_offset_x_ = child_max_offset_ * 0.5f;
     } else {
-      center_offset_x_ = 0;
+      center_offset_x_ = 0.0f;
     }
   } else {
-    center_offset_x_ = 0;
+    center_offset_x_ = 0.0f;
   }
   if (mouse_held_thumb_) {
     if (child_offset_h_
-        > child_w - (width() - 2 * (border_width_ + kHMargin))) {
-      child_offset_h_ = child_w - (width() - 2 * (border_width_ + kHMargin));
-      inertia_scroll_rate_ = 0;
+        > child_w - (width() - 2.0f * (border_width_ + kMarginH))) {
+      child_offset_h_ = child_w - (width() - 2.0f * (border_width_ + kMarginH));
+      inertia_scroll_rate_ = 0.0f;
     }
-    if (child_offset_h_ < 0) {
-      child_offset_h_ = 0;
-      inertia_scroll_rate_ = 0;
+    if (child_offset_h_ < 0.0f) {
+      child_offset_h_ = 0.0f;
+      inertia_scroll_rate_ = 0.0f;
     }
   }
-  (**i).set_translate(width() - (border_width_ + kHMargin)
+  (**i).set_translate(width() - (border_width_ + kMarginH)
                           + child_offset_h_smoothed_ - child_w
                           + center_offset_x_,
-                      4 + border_height_);
+                      4.0f + border_height_);
   thumb_dirty_ = true;
 }
 
@@ -546,7 +584,7 @@ void HScrollWidget::Draw(base::RenderPass* pass, bool draw_transparent) {
     while (current_time_ms - inertia_scroll_update_time_ms_ > 5) {
       inertia_scroll_update_time_ms_ += 5;
 
-      if (touch_mode_) {
+      if (g_base->ui->touch_mode()) {
         if (touch_held_) {
           float diff = (touch_x_ - child_offset_h_) - touch_down_x_;
           float smoothing = 0.7f;
@@ -565,7 +603,7 @@ void HScrollWidget::Draw(base::RenderPass* pass, bool draw_transparent) {
       if (!has_momentum_
           && (current_time_ms - last_velocity_event_time_millisecs_
               > 1000 / 30)) {
-        inertia_scroll_rate_ = 0;
+        inertia_scroll_rate_ = 0.0f;
       }
 
       // Lastly we apply smoothing so that if we're snapping to a specific
@@ -603,9 +641,10 @@ void HScrollWidget::Draw(base::RenderPass* pass, bool draw_transparent) {
   {
     base::EmptyComponent c(pass);
     c.SetTransparent(draw_transparent);
-    auto scissor = c.ScopedScissor({l + border_width_, b + border_height_ + 1,
-                                    l + (width() - border_width_ - 0),
-                                    b + (height() - border_height_) - 1});
+    auto scissor =
+        c.ScopedScissor({l + border_width_, b + border_height_ + 1.0f,
+                         l + (width() - border_width_ - 0.0f),
+                         b + (height() - border_height_) - 1.0f});
     c.Submit();  // Get out of the way for child drawing.
 
     set_simple_culling_left(l + border_width_);
@@ -671,7 +710,7 @@ void HScrollWidget::Draw(base::RenderPass* pass, bool draw_transparent) {
         float b_border, t_border, l_border, r_border;
         b_border = 6.0f;
         t_border = 3.0f;
-        if (sb_thumb_width > 100) {
+        if (sb_thumb_width > 100.0f) {
           auto wd = r2 - l2;
           l_border = wd * 0.04f;
           r_border = wd * 0.06f;
@@ -690,34 +729,29 @@ void HScrollWidget::Draw(base::RenderPass* pass, bool draw_transparent) {
 
       base::SimpleComponent c(pass);
       c.SetTransparent(draw_transparent);
-      //      float c_scale = 1.0f;
-      //      if (mouse_held_thumb_) {
-      //        c_scale = 1.8f;
-      //      } else if (mouse_over_thumb_) {
-      //        c_scale = 1.25f;
-      //      }
 
       float frame_duration = frame_def->display_time_elapsed();
 
       bool smooth_diff =
           (std::abs(child_offset_h_smoothed_ - child_offset_h_) > 0.01f);
-      if (touch_mode_) {
+
+      if (g_base->ui->touch_mode()) {
         if (smooth_diff || (touch_held_ && touch_is_scrolling_)
             || std::abs(inertia_scroll_rate_) > 1.0f) {
           last_scroll_bar_show_time_ = frame_def->display_time();
         }
       } else {
-        if (smooth_diff || (touch_held_ && touch_is_scrolling_)
+        if (smooth_diff || mouse_held_thumb_
             || std::abs(inertia_scroll_rate_) > 1.0f
             || (mouse_over_
-                && frame_def->display_time() - last_mouse_move_time_ < 0.1)) {
+                && frame_def->display_time() - last_mouse_move_time_ < 0.1f)) {
           last_scroll_bar_show_time_ = frame_def->display_time();
         }
       }
 
       // Fade in if we want to see the scrollbar. Start fading out a moment
       // after we stop wanting to see it.
-      if (frame_def->display_time() - last_scroll_bar_show_time_ < 1.0) {
+      if (frame_def->display_time() - last_scroll_bar_show_time_ < 1.0f) {
         touch_fade_ = std::min(1.5f, touch_fade_ + 2.0f * frame_duration);
       } else {
         touch_fade_ = std::max(0.0f, touch_fade_ - frame_duration);
@@ -727,17 +761,17 @@ void HScrollWidget::Draw(base::RenderPass* pass, bool draw_transparent) {
 
       {
         auto scissor =
-            c.ScopedScissor({l + border_width_, b + border_height_ + 1,
+            c.ScopedScissor({l + border_width_, b + border_height_ + 1.0f,
                              l + (width()), b + (height() * 0.995f)});
         auto xf = c.ScopedTransform();
         c.Translate(thumb_center_x_, thumb_center_y_, 0.75f);
         c.Scale(-thumb_width_, thumb_height_, 0.1f);
         c.FlipCullFace();
-        c.Rotate(-90, 0, 0, 1);
+        c.Rotate(-90.0f, 0.0f, 0.0f, 1.0f);
 
         if (draw_transparent) {
           c.DrawMeshAsset(g_base->assets->SysMesh(
-              sb_thumb_width > 100
+              sb_thumb_width > 100.0f
                   ? base::SysMeshID::kScrollBarThumbSimple
                   : base::SysMeshID::kScrollBarThumbShortSimple));
         }
@@ -767,7 +801,7 @@ void HScrollWidget::Draw(base::RenderPass* pass, bool draw_transparent) {
     }
     base::SimpleComponent c(pass);
     c.SetTransparent(true);
-    c.SetColor(1, 1, 1, border_opacity_);
+    c.SetColor(1.0f, 1.0f, 1.0f, border_opacity_);
     c.SetTexture(g_base->assets->SysTexture(base::SysTextureID::kScrollWidget));
     {
       auto xf = c.ScopedTransform();

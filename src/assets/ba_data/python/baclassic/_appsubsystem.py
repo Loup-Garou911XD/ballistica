@@ -28,6 +28,8 @@ if TYPE_CHECKING:
     from typing import Callable, Any, Sequence
 
     import bacommon.bs
+    import bacommon.clienteffect as clfx
+    import bacommon.clouddialog.basic as bcdlg
     from bascenev1lib.actor import spazappearance
     from bauiv1lib.party import PartyWindow
 
@@ -408,7 +410,7 @@ class ClassicAppSubsystem(babase.AppSubsystem):
         # Otherwise just force the issue.
         else:
             babase.pushcall(
-                babase.Call(bascenev1.new_host_session, MainMenuSession)
+                babase.CallStrict(bascenev1.new_host_session, MainMenuSession)
             )
 
     def getmaps(self, playtype: str) -> list[str]:
@@ -702,7 +704,7 @@ class ClassicAppSubsystem(babase.AppSubsystem):
         if sddata is not None:
             babase.apptimer(
                 delay,
-                babase.Call(ServerDialogWindow, sddata),
+                babase.CallStrict(ServerDialogWindow, sddata),
             )
 
     def show_url_window(self, address: str) -> None:
@@ -751,10 +753,13 @@ class ClassicAppSubsystem(babase.AppSubsystem):
         self,
         transition: str = 'in_right',
         origin_widget: bauiv1.Widget | None = None,
-        selected_profile: str | None = None,
+        # selected_profile: str | None = None,
     ) -> None:
         """Pop up a browser window from within a game."""
-        from bauiv1lib.profile.browser import ProfileBrowserWindow
+        import bacommon.docui.v1 as dui1
+
+        # from bauiv1lib.profile.browser import ProfileBrowserWindow
+        from bauiv1lib.inventory import InventoryUIController
 
         main_window = babase.app.ui_v1.get_main_window()
         if main_window is not None:
@@ -765,15 +770,16 @@ class ClassicAppSubsystem(babase.AppSubsystem):
             return
 
         babase.app.ui_v1.set_main_window(
-            ProfileBrowserWindow(
+            InventoryUIController(player_profiles_only=True).create_window(
+                dui1.Request('/'),
+                uiopenstateid='classicinventory',
                 transition=transition,
-                selected_profile=selected_profile,
                 origin_widget=origin_widget,
-                minimal_toolbar=True,
             ),
             is_top_level=True,
             back_state=None,
             suppress_warning=True,
+            extra_type_id=InventoryUIController.get_window_extra_type_id(),
         )
 
     def preload_map_preview_media(self) -> None:
@@ -835,6 +841,7 @@ class ClassicAppSubsystem(babase.AppSubsystem):
                 suppress_warning=True,
                 # Reset selections to default for consistency.
                 restore_shared_state=False,
+                extra_type_id='',
             )
 
     def save_ui_state(self) -> None:
@@ -876,11 +883,17 @@ class ClassicAppSubsystem(babase.AppSubsystem):
                         is_top_level=True,
                         back_state=None,
                         suppress_warning=True,
+                        extra_type_id='',
                     )
                 else:
                     # If there's a saved ui state, restore that.
                     if self.saved_ui_state is not None:
                         app.ui_v1.restore_main_window_state(self.saved_ui_state)
+                        # Kill the state now that we're back; we'll
+                        # generate a new one when we leave. This keeps
+                        # UIOpenStates stored in the state doing the
+                        # right thing.
+                        self.saved_ui_state = None
                     else:
                         # Otherwise start fresh at the main menu.
                         from bauiv1lib.mainmenu import MainMenuWindow
@@ -890,25 +903,32 @@ class ClassicAppSubsystem(babase.AppSubsystem):
                             is_top_level=True,
                             back_state=None,
                             suppress_warning=True,
+                            extra_type_id='',
                         )
 
     @staticmethod
     def run_bs_client_effects(
-        effects: list[bacommon.bs.ClientEffect], delay: float = 0.0
+        effects: list[clfx.Effect], delay: float = 0.0
     ) -> None:
-        """Run client effects sent from the master server."""
+        """Run client effects sent from the master server.
+
+        :meta private:
+        """
         from baclassic._clienteffect import run_bs_client_effects
 
         run_bs_client_effects(effects, delay=delay)
 
     @staticmethod
     def basic_client_ui_button_label_str(
-        label: bacommon.bs.BasicCloudDialog.ButtonLabel,
+        label: bcdlg.ButtonLabel,
     ) -> babase.Lstr:
-        """Given a client-ui label, return an Lstr."""
-        import bacommon.bs
+        """Given a client-ui label, return an Lstr.
 
-        cls = bacommon.bs.BasicCloudDialog.ButtonLabel
+        :meta private:
+        """
+        import bacommon.clouddialog.basic as bcdlg
+
+        cls = bcdlg.ButtonLabel
         if label is cls.UNKNOWN:
             # Server should not be sending us unknown stuff; make noise
             # if they do.

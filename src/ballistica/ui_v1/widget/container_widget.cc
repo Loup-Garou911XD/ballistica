@@ -804,12 +804,13 @@ void ContainerWidget::Draw(base::RenderPass* pass, bool draw_transparent) {
 
     if (!draw_transparent) {
       if (transition_type_ == TransitionType::kInScale) {
-        if (display_time_ms - dynamics_update_time_millisecs_ > 1000)
+        if (display_time_ms - dynamics_update_time_millisecs_ > 1000) {
           dynamics_update_time_millisecs_ = display_time_ms - 1000;
+        }
         while (display_time_ms - dynamics_update_time_millisecs_ > 5) {
           dynamics_update_time_millisecs_ += 5;
           d_transition_scale_ +=
-              std::min(0.2f, (1.0f - transition_scale_)) * 0.04f;
+              std::min(0.2f, (1.0f - transition_scale_)) * 0.03f;
           d_transition_scale_ *= 0.87f;
           transition_scale_ += d_transition_scale_;
 
@@ -829,7 +830,8 @@ void ContainerWidget::Draw(base::RenderPass* pass, bool draw_transparent) {
 
         while (display_time_ms - dynamics_update_time_millisecs_ > 5) {
           dynamics_update_time_millisecs_ += 5;
-          transition_scale_ -= 0.04f;
+          // transition_scale_ -= 0.03f;
+          transition_scale_ -= 0.025f;
           if (transition_scale_ <= 0.0f) {
             transition_scale_ = 0.0f;
 
@@ -932,11 +934,10 @@ void ContainerWidget::Draw(base::RenderPass* pass, bool draw_transparent) {
       // zoom from a point somewhere else on screen).
       if (transition_type_ == TransitionType::kInScale
           || transition_type_ == TransitionType::kOutScale) {
-        // Add a fudge factor since our scale point isn't exactly in our center.
-        // :-(
         float xdiff = scale_origin_stack_offset_x_ - stack_offset_x()
-                      + GetWidth() * -0.05f;
-        float ydiff = scale_origin_stack_offset_y_ - stack_offset_y();
+                      + GetWidth() * bg_center_fudge_x_;
+        float ydiff = scale_origin_stack_offset_y_ - stack_offset_y()
+                      + GetHeight() * bg_center_fudge_y_;
         transition_scale_offset_x_ =
             ((1.0f - transition_scale_) * xdiff) / scale();
         transition_scale_offset_y_ =
@@ -962,26 +963,33 @@ void ContainerWidget::Draw(base::RenderPass* pass, bool draw_transparent) {
   // so always calc them).
   if (bg_dirty_) {
     base::SysTextureID tex_id;
-    float l_border, r_border, b_border, t_border;
+    float l_border, r_border, b_border, t_border, center_x_amt, center_y_amt;
     float width = r - l;
     float height = t - b;
     if (height > width * 0.6f) {
       tex_id = base::SysTextureID::kWindowHSmallVMed;
-      bg_mesh_transparent_i_d_ = base::SysMeshID::kWindowHSmallVMedTransparent;
-      bg_mesh_opaque_i_d_ = base::SysMeshID::kWindowHSmallVMedOpaque;
+      bg_mesh_transparent_id_ = base::SysMeshID::kWindowHSmallVMedTransparent;
+      bg_mesh_opaque_id_ = base::SysMeshID::kWindowHSmallVMedOpaque;
       l_border = width * 0.07f;
       r_border = width * 0.19f;
       b_border = height * 0.1f;
       t_border = height * 0.07f;
+      // These need to be fudged until scaling in/out hits exact target
+      // point. Should look into why this math is off.
+      bg_center_fudge_x_ = -0.05f;
+      bg_center_fudge_y_ = 0.0f;
     } else {
       tex_id = base::SysTextureID::kWindowHSmallVSmall;
-      bg_mesh_transparent_i_d_ =
-          base::SysMeshID::kWindowHSmallVSmallTransparent;
-      bg_mesh_opaque_i_d_ = base::SysMeshID::kWindowHSmallVSmallOpaque;
+      bg_mesh_transparent_id_ = base::SysMeshID::kWindowHSmallVSmallTransparent;
+      bg_mesh_opaque_id_ = base::SysMeshID::kWindowHSmallVSmallOpaque;
       l_border = width * 0.12f;
       r_border = width * 0.19f;
       b_border = height * 0.45f;
       t_border = height * 0.23f;
+      // These need to be fudged until scaling in/out hits exact target
+      // point. Should look into why this math is off.
+      bg_center_fudge_x_ = -0.03f;
+      bg_center_fudge_y_ = 0.1f;
     }
     bg_width_ = r - l + l_border + r_border;
     bg_height_ = t - b + b_border + t_border;
@@ -1000,7 +1008,7 @@ void ContainerWidget::Draw(base::RenderPass* pass, bool draw_transparent) {
   }
 
   // Draw our window backing if we have one.
-  if ((w > 0) && (h > 0)) {
+  if (w > 0.0f && h > 0.0f) {
     if (background_) {
       float zoffs{};
       if (darken_behind_) {
@@ -1077,7 +1085,7 @@ void ContainerWidget::Draw(base::RenderPass* pass, bool draw_transparent) {
         c.Translate(bg_center_x_, bg_center_y_, zoffs);
         c.Scale(bg_width_ * transition_scale_, bg_height_ * transition_scale_);
         c.DrawMeshAsset(g_base->assets->SysMesh(
-            draw_transparent ? bg_mesh_transparent_i_d_ : bg_mesh_opaque_i_d_));
+            draw_transparent ? bg_mesh_transparent_id_ : bg_mesh_opaque_id_));
       }
       c.Submit();
     }
@@ -1487,8 +1495,8 @@ void ContainerWidget::ShowWidget(Widget* w) {
   float buffer_left = w->show_buffer_left();
   float tx = (w->tx() - buffer_left) * s;
   float ty = (w->ty() - buffer_bottom) * s;
-  float width = (w->GetWidth() + buffer_left + buffer_right) * s;
-  float height = (w->GetHeight() + buffer_bottom + buffer_top) * s;
+  float width = (w->GetWidth() * w->scale() + buffer_left + buffer_right) * s;
+  float height = (w->GetHeight() * w->scale() + buffer_bottom + buffer_top) * s;
   HandleMessage(base::WidgetMessage(base::WidgetMessage::Type::kShow, nullptr,
                                     tx, ty, width, height));
 }
@@ -1714,7 +1722,9 @@ void ContainerWidget::SelectDownWidget() {
     if (!w && selected_widget_->auto_select()) {
       float our_x, our_y;
       selected_widget_->GetCenter(&our_x, &our_y);
-      w = GetClosestDownWidget(our_x, our_y, selected_widget_);
+      if (!selected_widget_->auto_select_toolbars_only()) {
+        w = GetClosestDownWidget(our_x, our_y, selected_widget_);
+      }
       if (!w) {
         // If we found no viable children and we're under the main window
         // stack, see if we should pass focus to a toolbar widget.
@@ -1780,7 +1790,9 @@ void ContainerWidget::SelectUpWidget() {
     if (!w && selected_widget_->auto_select()) {
       float our_x, our_y;
       selected_widget_->GetCenter(&our_x, &our_y);
-      w = GetClosestUpWidget(our_x, our_y, selected_widget_);
+      if (!selected_widget_->auto_select_toolbars_only()) {
+        w = GetClosestUpWidget(our_x, our_y, selected_widget_);
+      }
       if (!w) {
         // If we found no viable children and we're on the main window stack,
         // see if we should pass focus to a toolbar widget.
@@ -1846,7 +1858,9 @@ void ContainerWidget::SelectLeftWidget() {
     if (!w && selected_widget_->auto_select()) {
       float our_x, our_y;
       selected_widget_->GetCenter(&our_x, &our_y);
-      w = GetClosestLeftWidget(our_x, our_y, selected_widget_);
+      if (!selected_widget_->auto_select_toolbars_only()) {
+        w = GetClosestLeftWidget(our_x, our_y, selected_widget_);
+      }
       // When we find no viable targets for an autoselect widget we do
       // nothing.
       if (!w) {
@@ -1900,7 +1914,9 @@ void ContainerWidget::SelectRightWidget() {
     if (!w && selected_widget_->auto_select()) {
       float our_x, our_y;
       selected_widget_->GetCenter(&our_x, &our_y);
-      w = GetClosestRightWidget(our_x, our_y, selected_widget_);
+      if (!selected_widget_->auto_select_toolbars_only()) {
+        w = GetClosestRightWidget(our_x, our_y, selected_widget_);
+      }
 
       // For autoselect widgets, if we find no viable targets, we do nothing.
       if (!w) {

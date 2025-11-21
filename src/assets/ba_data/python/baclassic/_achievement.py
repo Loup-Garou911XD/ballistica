@@ -727,7 +727,10 @@ class Achievement:
         )
 
     def get_award_chest_type(self) -> ClassicChestAppearance:
-        """Return the type of chest given for this achievement."""
+        """Return the type of chest given for this achievement.
+
+        :meta private:
+        """
 
         # For now just map our old ticket values to chest types.
         # Can add distinct values if need be later.
@@ -1520,5 +1523,7 @@ class Achievement:
         for actor in objs:
             bascenev1.timer(
                 out_time + 1.000,
-                babase.WeakCall(actor.handlemessage, bascenev1.DieMessage()),
+                babase.WeakCallStrict(
+                    actor.handlemessage, bascenev1.DieMessage()
+                ),
             )

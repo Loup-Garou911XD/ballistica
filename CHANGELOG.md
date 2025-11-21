@@ -1,4 +1,79 @@
-### 1.7.53 (build 22573, api 9, 2025-10-03)
+### 1.7.55 (build 22636, api 9, 2025-11-20)
+
+### 1.7.54 (build 22634, api 9, 2025-11-20)
+- `scrollwidget` and `hscrollwidget` now center selected items that are too
+  large to fit completely in view instead of unpredictably scrolling to the
+  beginning or end of them. This makes show-buffer values (which effectively
+  make things bigger in the scrollwidget's eyes) more intuitive to use.
+- Added new `button_type` values for `bauiv1.buttonwidget()`: 'small', 'medium',
+  'large', and 'larger'. These correspond to the styles that are normally
+  selected based on button dimensions; you can now choose them explicitly if you
+  like.
+- Added `DocUI` (short for Document-Based-UI) - a high level layer built on top
+  of `bauiv1` which allows defining a UI as a dataclass structure. This system
+  aims to makes it easier to create mostly-bullet-proof UIs that work at any UI
+  scale with any amount of content and also makes it possible to serve UIs
+  through a webserver or other means. Originally this was called `CloudUI` due
+  to that feature being my primary motivation for making it, but I renamed it to
+  `DocUI` after some feedback and further thought. I want it to be clear that it
+  is also useful for purely local UI creation; not only cloud based stuff. To
+  learn more, poke the `DocUI Test` button in the `UI` dev-console tab.
+- Added a `better_bg_fit` arg to `bauiv1.buttonwidget()`. When set to True,
+  button widgets do a better job of fitting their background images to their
+  widget bounds. The old fitting code did not scale consistently, meaning a
+  200x50 size button might fit button bounds nicely while a 400x100 button would
+  not. With this new setting, scaling is consistent and tightly calibrated to
+  fit bounds. It is enabled by default for doc-ui buttons. See the 'Bounds
+  Tests' page in the dev-console's doc-ui test page for more.
+- Added a 'squareWide' `button_type` option in `bauiv1.buttonwidget()` and a
+  corresponding `ButtonType.SQUARE_WIDE` in doc-ui.
+- The store has been replaced with a shiny new one that uses DocUI.
+- The inventory page is finally fully filled out (using DocUI).
+- Added a `fade` arg to `bauiv1.spinnerwidget()`. Pass `False` to make the
+  spinner appear/disappear immediately instead of fading.
+- Widget ids can now be any string; there are no longer restrictions on which
+  characters can be used.
+  
+### 1.7.53 (build 22597, api 9, 2025-10-25)
+- Fixes an issue where deleting player profiles would error.
+- App audio output should now update when the default sound device changes
+  (plugging in headphones, etc). This applies to all platforms using recent
+  builds of OpenALSoft which should be most of them at this point.
+- Added a `literal` arg to `bauiv1.textwidget()`. If you pass False for this,
+  the widget will never interpret strings such as '{"v":"foo"}' as Lstr data
+  (This is how Lstr values work under the hood). Another way to protect literal
+  strings is to wrap them in Lstrs (`bui.Lstr(value='{IAmNotJSON}')`), but that
+  way is less efficient.
+- Added `text_literal` arg for `bauiv1.buttonwidget()` which does the same for
+  the button's label.
+- Added `babase.CallPartial` and `babase.WeakCallPartial` - these are the same
+  as `babase.Call` and `babase.WeakCall`, with the addition that they now
+  support extra keyword args at call time; not only positional args.
+- Added `babase.CallStrict` and `babase.WeakCallStrict` - these versions do not
+  allow extra args or keywords to be passed at call time, but in return they do
+  more complete type checking. You should prefer these when you are not passing
+  extra args at call time.
+- Added warnings for `babase.Call` and `babase.WeakCall` that they should be
+  replaced by either the explicit 'partial' or 'strict' versions. Once api 9
+  support ends, `babase.Call` and `babase.WeakCall` will behave like the strict
+  versions instead of the partial versions and the warning will be removed.
+- Added `auto_select_toolbars_only` bool arg to `bauiv1.widget()` (for editing
+  arbitrary widgets). When auto-select is on for a widget, this causes it to
+  *only* consider widgets in the top and bottom toolbars. This can be handy to
+  enable if you want to explicitly assign all other left/right/up/down widget
+  relationships in your window; this ensures that any directions you don't
+  assign will go to toolbars and not neighbor widgets (as sometimes auto-select
+  can make questionable choices).
+- Toolbar nav buttons now glow while you are visiting them.
+- UI control can now be taken from another input device after it is idle for 15
+  seconds (down from 30). Please holler if this feels too chaotic.
+- Made UI selection highlighting behavior smarter and more consistent across
+  platforms. Highlighting is now disabled while clicks or taps are being used to
+  navigate the UI and enabled while any other devices (keyboards, game
+  controllers, etc.) are being used. Previously highlighting was either always
+  enabled or always disabled based on what devices were detected. This way
+  someone who plays with a keyboard or game controller but who taps/clicks their
+  way around the UI won't have to deal with confusing flashing buttons.
 
 ### 1.7.52 (build 22572, api 9, 2025-10-03)
 - Empty version number bump.

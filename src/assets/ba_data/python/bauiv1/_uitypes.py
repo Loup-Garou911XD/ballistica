@@ -75,3 +75,23 @@ class RootUIUpdatePause:
 
     def __del__(self) -> None:
         _bauiv1.root_ui_resume_updates()
+
+
+class UIOpenState:
+    """Keeps ui informed that something is open.
+
+    Generally instances of this are assigned as a class member of some
+    UI class, which will then keep the UI informed upon its death.
+
+    It is valid to have multiple states for one tag; the UI will keep a
+    tally.
+    """
+
+    __slots__ = ['stateid']
+
+    def __init__(self, stateid: str) -> None:
+        self.stateid = stateid
+        _bauiv1.ui_open_state_change(self.stateid, 1)
+
+    def __del__(self) -> None:
+        _bauiv1.ui_open_state_change(self.stateid, -1)
