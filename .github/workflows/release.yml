@@ -6,18 +6,18 @@ on:
       - "v*"
 
 jobs:
-  create_release:
-    runs-on: ubuntu-latest
-    outputs:
-      release_id: ${{ steps.create_release.outputs.id }}
-      upload_url: ${{ steps.create_release.outputs.upload_url }}
-    steps:
-      - uses: actions/checkout@v4
-      - name: Create Release
-        id: create_release
-        uses: ncipollo/release-action@v1
-        with:
-          body: "See the [Full Changelog](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md)"
+  # create_release:
+  #   runs-on: ubuntu-latest
+  #   outputs:
+  #     release_id: ${{ steps.create_release.outputs.id }}
+  #     upload_url: ${{ steps.create_release.outputs.upload_url }}
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - name: Create Release
+  #       id: create_release
+  #       uses: ncipollo/release-action@v1
+  #       with:
+  #         body: "See the [Full Changelog](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md)"
 
   # ################################################################################
   # #                                                                              #
@@ -176,63 +176,63 @@ jobs:
   #                                   Docker                                     #
   #                                                                              #
   ################################################################################
-  release_docker_gui_debug_image:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Setup build env
-        uses: ./.github/actions/bombsquad_build_env
-      - name: Docker login
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.repository_owner }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Make the build
-        run: |
-          make docker-gui-debug
-          make docker-save
-      - name: Zip the build
-        run: zip -j bombsquad_docker_gui_debug.tar.zip build/docker/bombsquad_gui_debug_docker.tar
-      - name: Upload the build
-        uses: ncipollo/release-action@v1
-        with:
-          allowUpdates: true
-          omitBody: true
-          artifacts: bombsquad_docker_gui_debug.tar.zip
-      - name: Push to github image repository
-        run: |
-          docker tag bombsquad_gui_debug:latest ghcr.io/${GITHUB_REPOSITORY,,}/bombsquad_gui:debug_${{ github.ref_name }}_x86_64
-          docker push ghcr.io/${GITHUB_REPOSITORY,,}/bombsquad_gui:debug_${{ github.ref_name }}_x86_64
+  # release_docker_gui_debug_image:
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - name: Setup build env
+  #       uses: ./.github/actions/bombsquad_build_env
+  #     - name: Docker login
+  #       uses: docker/login-action@v3
+  #       with:
+  #         registry: ghcr.io
+  #         username: ${{ github.repository_owner }}
+  #         password: ${{ secrets.GITHUB_TOKEN }}
+  #     - name: Make the build
+  #       run: |
+  #         make docker-gui-debug
+  #         make docker-save
+  #     - name: Zip the build
+  #       run: zip -j bombsquad_docker_gui_debug.tar.zip build/docker/bombsquad_gui_debug_docker.tar
+  #     - name: Upload the build
+  #       uses: ncipollo/release-action@v1
+  #       with:
+  #         allowUpdates: true
+  #         omitBody: true
+  #         artifacts: bombsquad_docker_gui_debug.tar.zip
+  #     - name: Push to github image repository
+  #       run: |
+  #         docker tag bombsquad_gui_debug:latest ghcr.io/${GITHUB_REPOSITORY,,}/bombsquad_gui:debug_${{ github.ref_name }}_x86_64
+  #         docker push ghcr.io/${GITHUB_REPOSITORY,,}/bombsquad_gui:debug_${{ github.ref_name }}_x86_64
 
-  release_docker_server_debug_image:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Setup build env
-        uses: ./.github/actions/bombsquad_build_env
-      - name: Docker login
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.repository_owner }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Make the build
-        run: |
-          make docker-server-debug
-          make docker-save
-      - name: Zip the build
-        run: zip -j bombsquad_docker_server_debug.tar.zip build/docker/bombsquad_server_debug_docker.tar
-      - name: Upload the build
-        uses: ncipollo/release-action@v1
-        with:
-          allowUpdates: true
-          omitBody: true
-          artifacts: bombsquad_docker_server_debug.tar.zip
-      - name: Push to github image repository
-        run: |
-          docker tag bombsquad_server_debug:latest ghcr.io/${GITHUB_REPOSITORY,,}/bombsquad_server:debug_${{ github.ref_name }}_x86_64
-          docker push ghcr.io/${GITHUB_REPOSITORY,,}/bombsquad_server:debug_${{ github.ref_name }}_x86_64
+  # release_docker_server_debug_image:
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - name: Setup build env
+  #       uses: ./.github/actions/bombsquad_build_env
+  #     - name: Docker login
+  #       uses: docker/login-action@v3
+  #       with:
+  #         registry: ghcr.io
+  #         username: ${{ github.repository_owner }}
+  #         password: ${{ secrets.GITHUB_TOKEN }}
+  #     - name: Make the build
+  #       run: |
+  #         make docker-server-debug
+  #         make docker-save
+  #     - name: Zip the build
+  #       run: zip -j bombsquad_docker_server_debug.tar.zip build/docker/bombsquad_server_debug_docker.tar
+  #     - name: Upload the build
+  #       uses: ncipollo/release-action@v1
+  #       with:
+  #         allowUpdates: true
+  #         omitBody: true
+  #         artifacts: bombsquad_docker_server_debug.tar.zip
+  #     - name: Push to github image repository
+  #       run: |
+  #         docker tag bombsquad_server_debug:latest ghcr.io/${GITHUB_REPOSITORY,,}/bombsquad_server:debug_${{ github.ref_name }}_x86_64
+  #         docker push ghcr.io/${GITHUB_REPOSITORY,,}/bombsquad_server:debug_${{ github.ref_name }}_x86_64
 
   upload_docker_x86_64_server_release_image:
     runs-on: ubuntu-latest
