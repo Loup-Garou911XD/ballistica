@@ -1200,7 +1200,9 @@ void AudioServer::Process_() {
     }
 
 #if BA_ENABLE_AUDIO
-    CHECK_AL_ERROR;
+    if (!using_null_device_) {
+      CHECK_AL_ERROR;
+    }
 #endif
   }
   UpdateTimerInterval_();
@@ -1363,6 +1365,11 @@ void AudioServer::ThreadSource_::UpdateAvailability() {
 
   assert(g_base->InAudioThread());
 
+  // Skip in null device mode.
+  if (audio_server_->using_null_device_) {
+    return;
+  }
+
   // If it's waiting to be picked up by a client or has pending client
   // commands, skip.
   if (!client_source_->TryLock(6)) {
@@ -1424,6 +1431,9 @@ void AudioServer::ThreadSource_::UpdateAvailability() {
 
 void AudioServer::ThreadSource_::Update() {
 #if BA_ENABLE_AUDIO
+  if (audio_server_->using_null_device_) {
+    return;
+  }
   assert(is_streamed_ && is_actually_playing_);
   streamer_->Update();
 #endif
@@ -1636,6 +1646,12 @@ void AudioServer::ThreadSource_::ExecPlay() {
 void AudioServer::ThreadSource_::Stop() {
 #if BA_ENABLE_AUDIO
   assert(g_base->audio_server);
+
+  // Skip if in null device mode.
+  if (g_base->audio_server->using_null_device_) {
+    want_to_play_ = false;
+    return;
+  }
 
   // If our context is suspended we can't actually stop now; just record our
   // intent.
