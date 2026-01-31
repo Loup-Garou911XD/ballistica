@@ -64,6 +64,8 @@ class AudioServer {
 
   auto event_loop() const -> EventLoop* { return event_loop_; }
 
+  auto using_null_device() const -> bool { return using_null_device_; }
+
   void OnDeviceDisconnected();
   void OnDefaultDeviceChanged();
   void OpenALSoftLogCallback(const std::string& msg);

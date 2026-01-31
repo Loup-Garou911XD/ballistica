@@ -545,14 +545,16 @@ void AudioServer::Start_() {
                            "OpenAL default-device-change events UNAVAILABLE.");
     }
 
-    ALfloat listener_pos[] = {0.0f, 0.0f, 0.0f};
-    ALfloat listener_vel[] = {0.0f, 0.0f, 0.0f};
-    ALfloat listener_ori[] = {0.0f, 0.0f, -1.0f, 0.0f, 1.0f, 0.0f};
+    if (!using_null_device_) {
+      ALfloat listener_pos[] = {0.0f, 0.0f, 0.0f};
+      ALfloat listener_vel[] = {0.0f, 0.0f, 0.0f};
+      ALfloat listener_ori[] = {0.0f, 0.0f, -1.0f, 0.0f, 1.0f, 0.0f};
 
-    alListenerfv(AL_POSITION, listener_pos);
-    alListenerfv(AL_VELOCITY, listener_vel);
-    alListenerfv(AL_ORIENTATION, listener_ori);
-    CHECK_AL_ERROR;
+      alListenerfv(AL_POSITION, listener_pos);
+      alListenerfv(AL_VELOCITY, listener_vel);
+      alListenerfv(AL_ORIENTATION, listener_ori);
+      CHECK_AL_ERROR;
+    }
   }
 
   // Only create audio sources if we have a valid OpenAL context.
