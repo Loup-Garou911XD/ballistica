@@ -122,6 +122,7 @@ class AudioServer {
   bool shutdown_completed_{};
   bool shutting_down_{};
   bool shipped_reconnect_logs_{};
+  bool using_null_device_{false};
   int al_source_count_{};
   seconds_t last_connected_time_{};
   seconds_t last_reset_attempt_time_{-999.0};
