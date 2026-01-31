@@ -465,84 +465,88 @@ void AudioServer::Start_() {
              + "\n  Device: " + device_name + env_note;
     });
 
-    alcDevicePauseSOFT = reinterpret_cast<LPALCDEVICEPAUSESOFT_>(
-        alcGetProcAddress(device, "alcDevicePauseSOFT"));
-    alcDeviceResumeSOFT = reinterpret_cast<LPALCDEVICERESUMESOFT_>(
-        alcGetProcAddress(device, "alcDeviceResumeSOFT"));
+    if (!using_null_device_) {
+      alcDevicePauseSOFT = reinterpret_cast<LPALCDEVICEPAUSESOFT_>(
+          alcGetProcAddress(device, "alcDevicePauseSOFT"));
+      alcDeviceResumeSOFT = reinterpret_cast<LPALCDEVICERESUMESOFT_>(
+          alcGetProcAddress(device, "alcDeviceResumeSOFT"));
 
-    // Sanity check: we expect neither or both of these to be present.
-    assert((alcDevicePauseSOFT != nullptr) == (alcDeviceResumeSOFT != nullptr));
-    if (alcDevicePauseSOFT != nullptr && alcDeviceResumeSOFT != nullptr) {
-      g_core->logging->Log(LogName::kBaAudio, LogLevel::kInfo,
-                           "OpenAL device pause/resume AVAILABLE.");
-    } else {
-      g_core->logging->Log(LogName::kBaAudio, LogLevel::kInfo,
-                           "OpenAL device pause/resume UNAVAILABLE.");
-    }
-
-    alcResetDeviceSOFT = reinterpret_cast<LPALCRESETDEVICESOFT_>(
-        alcGetProcAddress(device, "alcResetDeviceSOFT"));
-
-    alcReopenDeviceSOFT = reinterpret_cast<LPALCREOPENDEVICESOFT_>(
-        alcGetProcAddress(device, "alcReopenDeviceSOFT"));
-
-    alEventCallbackSOFT = reinterpret_cast<LPALEVENTCALLBACKSOFT_>(
-        alcGetProcAddress(device, "alEventCallbackSOFT"));
-
-    alEventControlSOFT = reinterpret_cast<LPALEVENTCONTROLSOFT_>(
-        alcGetProcAddress(device, "alEventControlSOFT"));
-
-    alcEventCallbackSOFT = reinterpret_cast<LPALCEVENTCALLBACKSOFT_>(
-        alcGetProcAddress(device, "alcEventCallbackSOFT"));
-
-    alcEventControlSOFT = reinterpret_cast<LPALCEVENTCONTROLSOFT_>(
-        alcGetProcAddress(device, "alcEventControlSOFT"));
-
-    alcEventIsSupportedSOFT = reinterpret_cast<LPALCEVENTISSUPPORTEDSOFT_>(
-        alcGetProcAddress(device, "alcEventIsSupportedSOFT"));
-
-    if (alEventCallbackSOFT != nullptr && alEventControlSOFT != nullptr) {
-      // Set ourself up to recieve these type of callbacks.
-      alEventCallbackSOFT(ALEventCallback_, nullptr);
-      CHECK_AL_ERROR;
-
-      g_core->logging->Log(LogName::kBaAudio, LogLevel::kInfo,
-                           "OpenAL disconnect events AVAILABLE.");
-
-      // Ask to be notified when a context is disconnected from its device.
-      ALenum types[] = {AL_EVENT_TYPE_DISCONNECTED_SOFT_};
-      alEventControlSOFT(1, types, AL_TRUE);
-      CHECK_AL_ERROR;
-    } else {
-      g_core->logging->Log(LogName::kBaAudio, LogLevel::kInfo,
-                           "OpenAL disconnect events UNAVAILABLE.");
-    }
-
-    bool set_default_device_changed_callback{};
-    if (alcEventCallbackSOFT != nullptr && alcEventIsSupportedSOFT != nullptr
-        && alcEventControlSOFT != nullptr) {
-      // Set ourself up to recieve these type of callbacks.
-      alcEventCallbackSOFT(ALCEventCallback_, nullptr);
-      CHECK_AL_ERROR;
-
-      if (alcEventIsSupportedSOFT(ALC_EVENT_TYPE_DEFAULT_DEVICE_CHANGED_SOFT_,
-                                  ALC_PLAYBACK_DEVICE_SOFT_)
-          == ALC_EVENT_SUPPORTED_SOFT_) {
-        // Ask to be notified when default output device changes.
-        ALenum types[] = {ALC_EVENT_TYPE_DEFAULT_DEVICE_CHANGED_SOFT_};
-        auto success = alcEventControlSOFT(1, types, AL_TRUE);
-        if (success) {
-          set_default_device_changed_callback = true;
-        }
-        CHECK_AL_ERROR;
+      // Sanity check: we expect neither or both of these to be present.
+      assert((alcDevicePauseSOFT != nullptr)
+             == (alcDeviceResumeSOFT != nullptr));
+      if (alcDevicePauseSOFT != nullptr && alcDeviceResumeSOFT != nullptr) {
+        g_core->logging->Log(LogName::kBaAudio, LogLevel::kInfo,
+                             "OpenAL device pause/resume AVAILABLE.");
+      } else {
+        g_core->logging->Log(LogName::kBaAudio, LogLevel::kInfo,
+                             "OpenAL device pause/resume UNAVAILABLE.");
       }
-    }
-    if (set_default_device_changed_callback) {
-      g_core->logging->Log(LogName::kBaAudio, LogLevel::kInfo,
-                           "OpenAL default-device-change events AVAILABLE.");
-    } else {
-      g_core->logging->Log(LogName::kBaAudio, LogLevel::kInfo,
-                           "OpenAL default-device-change events UNAVAILABLE.");
+
+      alcResetDeviceSOFT = reinterpret_cast<LPALCRESETDEVICESOFT_>(
+          alcGetProcAddress(device, "alcResetDeviceSOFT"));
+
+      alcReopenDeviceSOFT = reinterpret_cast<LPALCREOPENDEVICESOFT_>(
+          alcGetProcAddress(device, "alcReopenDeviceSOFT"));
+
+      alEventCallbackSOFT = reinterpret_cast<LPALEVENTCALLBACKSOFT_>(
+          alcGetProcAddress(device, "alEventCallbackSOFT"));
+
+      alEventControlSOFT = reinterpret_cast<LPALEVENTCONTROLSOFT_>(
+          alcGetProcAddress(device, "alEventControlSOFT"));
+
+      alcEventCallbackSOFT = reinterpret_cast<LPALCEVENTCALLBACKSOFT_>(
+          alcGetProcAddress(device, "alcEventCallbackSOFT"));
+
+      alcEventControlSOFT = reinterpret_cast<LPALCEVENTCONTROLSOFT_>(
+          alcGetProcAddress(device, "alcEventControlSOFT"));
+
+      alcEventIsSupportedSOFT = reinterpret_cast<LPALCEVENTISSUPPORTEDSOFT_>(
+          alcGetProcAddress(device, "alcEventIsSupportedSOFT"));
+
+      if (alEventCallbackSOFT != nullptr && alEventControlSOFT != nullptr) {
+        // Set ourself up to recieve these type of callbacks.
+        alEventCallbackSOFT(ALEventCallback_, nullptr);
+        CHECK_AL_ERROR;
+
+        g_core->logging->Log(LogName::kBaAudio, LogLevel::kInfo,
+                             "OpenAL disconnect events AVAILABLE.");
+
+        // Ask to be notified when a context is disconnected from its device.
+        ALenum types[] = {AL_EVENT_TYPE_DISCONNECTED_SOFT_};
+        alEventControlSOFT(1, types, AL_TRUE);
+        CHECK_AL_ERROR;
+      } else {
+        g_core->logging->Log(LogName::kBaAudio, LogLevel::kInfo,
+                             "OpenAL disconnect events UNAVAILABLE.");
+      }
+
+      bool set_default_device_changed_callback{};
+      if (alcEventCallbackSOFT != nullptr && alcEventIsSupportedSOFT != nullptr
+          && alcEventControlSOFT != nullptr) {
+        // Set ourself up to recieve these type of callbacks.
+        alcEventCallbackSOFT(ALCEventCallback_, nullptr);
+        CHECK_AL_ERROR;
+
+        if (alcEventIsSupportedSOFT(ALC_EVENT_TYPE_DEFAULT_DEVICE_CHANGED_SOFT_,
+                                    ALC_PLAYBACK_DEVICE_SOFT_)
+            == ALC_EVENT_SUPPORTED_SOFT_) {
+          // Ask to be notified when default output device changes.
+          ALenum types[] = {ALC_EVENT_TYPE_DEFAULT_DEVICE_CHANGED_SOFT_};
+          auto success = alcEventControlSOFT(1, types, AL_TRUE);
+          if (success) {
+            set_default_device_changed_callback = true;
+          }
+          CHECK_AL_ERROR;
+        }
+      }
+      if (set_default_device_changed_callback) {
+        g_core->logging->Log(LogName::kBaAudio, LogLevel::kInfo,
+                             "OpenAL default-device-change events AVAILABLE.");
+      } else {
+        g_core->logging->Log(
+            LogName::kBaAudio, LogLevel::kInfo,
+            "OpenAL default-device-change events UNAVAILABLE.");
+      }
     }
 
     if (!using_null_device_) {
@@ -859,7 +863,7 @@ void AudioServer::PushResetCall() {
 void AudioServer::PushSetListenerPositionCall(const Vector3f& p) {
   event_loop()->PushCall([this, p] {
 #if BA_ENABLE_AUDIO
-    if (!suspended_ && !shutting_down_) {
+    if (!using_null_device_ && !suspended_ && !shutting_down_) {
       ALfloat lpos[3] = {p.x, p.y, p.z};
       alListenerfv(AL_POSITION, lpos);
       CHECK_AL_ERROR;
@@ -872,7 +876,7 @@ void AudioServer::PushSetListenerOrientationCall(const Vector3f& forward,
                                                  const Vector3f& up) {
   event_loop()->PushCall([this, forward, up] {
 #if BA_ENABLE_AUDIO
-    if (!suspended_ && !shutting_down_) {
+    if (!using_null_device_ && !suspended_ && !shutting_down_) {
       ALfloat lorient[6] = {forward.x, forward.y, forward.z, up.x, up.y, up.z};
       alListenerfv(AL_ORIENTATION, lorient);
       CHECK_AL_ERROR;
