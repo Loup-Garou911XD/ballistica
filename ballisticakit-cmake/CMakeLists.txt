@@ -5,9 +5,23 @@ option(HEADLESS "build headless server" OFF)
 option(TEST_BUILD "include testing features" OFF)
 option(DISCORD "enable Discord" OFF)
 option(REQUIRE_OS_FONT_RENDERING "fail if pangocairo is not found" OFF)
+option(STATIC_BUILD "build with static libs" OFF)
 
 # Requiring minimum of C++20 currently.
 set(CMAKE_CXX_STANDARD 20)
+
+# ============= STATIC BUILD CONFIGURATION =============
+if(STATIC_BUILD)
+  # Early configuration: Prefer static libraries for find_package/pkg-config
+  set(CMAKE_FIND_LIBRARY_SUFFIXES ".a" ".lib" ${CMAKE_FIND_LIBRARY_SUFFIXES})
+  set(PKG_CONFIG_STATIC ON)
+  
+  # Python3 must be configured before find_package(Python3)
+  set(Python3_USE_STATIC_LIBS ON)
+  
+  message(STATUS "Static build enabled - configuring for static libraries")
+endif() #STATIC_BUILD
+# =======================================================
 
 # Stuff applying everywhere.
 add_library(common_deps INTERFACE)
@@ -65,7 +79,8 @@ else()
   else()
     pkg_check_modules(PANGOCAIRO IMPORTED_TARGET pangocairo)
   endif()
-  if(PANGOCAIRO_FOUND)
+  # (Disabled in static builds to avoid glib transitive dependencies)
+  if(PANGOCAIRO_FOUND AND NOT STATIC_BUILD)
     target_compile_definitions(common_deps INTERFACE BA_ENABLE_OS_FONT_RENDERING=1)
     target_link_libraries(ba_deps INTERFACE PkgConfig::PANGOCAIRO)
   endif()
@@ -782,7 +797,7 @@ set(BALLISTICA_SOURCES
 # BallisticaKit monolithic binary.
 add_executable(ballisticakitbin ${BALLISTICA_SOURCES})
 
-############################ Discord Platform SDK ##############################
+#================== Discord Platform SDK ==================
 if(DISCORD)
   set(DISCORD_SDK_ROOT "${CMAKE_SOURCE_DIR}/../src/external/discord_social_sdk")
   set(DISCORD_SDK_INCLUDE_DIR "${DISCORD_SDK_ROOT}/include")
@@ -815,6 +830,19 @@ if(DISCORD)
   target_include_directories(ba_deps INTERFACE ${DISCORD_SDK_INCLUDE_DIR})
   target_link_libraries(ba_deps INTERFACE ${DISCORD_LIB_PATH})
 endif()  # DISCORD
+# ==============================================================
+
+
+# ============= STATIC BUILD LINKING CONFIGURATION =============
+if(STATIC_BUILD)
+  if(MSVC)
+    add_link_options(/SUBSYSTEM:CONSOLE)
+  else()
+    add_link_options(-static-libgcc -static-libstdc++)
+  endif()
+  message(STATUS "Static build: C++ runtime linked statically")
+endif()
+# ==============================================================
 
 # Gets -rdynamic added when linking gcc builds which exports all symbols which
 # gives us more meaningful stack traces using backtrace_symbols().
