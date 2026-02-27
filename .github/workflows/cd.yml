@@ -31,7 +31,7 @@ jobs:
           -name "libSDL*.a" -o \
           -name "libogg*.a" -o \
           -name "libvorbis*.a"
-          ls -l /usr/lib/*.a
+          ls -l "/usr/lib/*.a"
 
           CMAKE_EXTRA_ARGS="-DSTATIC_BUILD=1" make cmake-build
           ldd build/cmake/debug/ballisticakit
