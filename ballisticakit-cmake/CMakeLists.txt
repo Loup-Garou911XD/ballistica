@@ -12,13 +12,10 @@ set(CMAKE_CXX_STANDARD 20)
 
 # ============= STATIC BUILD CONFIGURATION =============
 if(STATIC_BUILD)
-  # Early configuration: Prefer static libraries for find_package/pkg-config
+  # Prefer static libraries for find_package
   set(CMAKE_FIND_LIBRARY_SUFFIXES ".a" ".lib" ${CMAKE_FIND_LIBRARY_SUFFIXES})
   set(PKG_CONFIG_STATIC ON)
-  
-  # Python3 must be configured before find_package(Python3)
   set(Python3_USE_STATIC_LIBS ON)
-  
   message(STATUS "Static build enabled - configuring for static libraries")
 endif() #STATIC_BUILD
 # =======================================================
@@ -72,15 +69,32 @@ else()
     OpenGL::GL
   )
 
+  # PANGOCAIRO causing alot of transitive dependency issues when linked in statically, 
+  # so we need to temporarily disable static library searching when looking for it.
+  # Force dynamic linking for pangocairo to avoid transitive dependency issues
+  if(STATIC_BUILD)
+    set(_SAVED_FIND_LIBRARY_SUFFIXES ${CMAKE_FIND_LIBRARY_SUFFIXES})
+    set(_SAVED_PKG_CONFIG_STATIC ${PKG_CONFIG_STATIC})
+    # Restore default (dynamic) library search order
+    set(CMAKE_FIND_LIBRARY_SUFFIXES ".so" ".a")
+    set(PKG_CONFIG_STATIC OFF)
+  endif()
+
   # Optional: Pango+Cairo for OS font rendering on Linux/macOS cmake builds.
-  # Pass -DREQUIRE_OS_FONT_RENDERING=ON to make this a hard requirement.
+  # Pass -DREQUIRE_OS_FONT_RENDERING=ON to make this a hard requirement.  
   if(REQUIRE_OS_FONT_RENDERING)
     pkg_check_modules(PANGOCAIRO REQUIRED IMPORTED_TARGET pangocairo)
   else()
     pkg_check_modules(PANGOCAIRO IMPORTED_TARGET pangocairo)
   endif()
-  # (Disabled in static builds to avoid glib transitive dependencies)
-  if(PANGOCAIRO_FOUND AND NOT STATIC_BUILD)
+  
+  # Restore static library preferences for other libraries
+  if(STATIC_BUILD)
+    set(CMAKE_FIND_LIBRARY_SUFFIXES ${_SAVED_FIND_LIBRARY_SUFFIXES})
+    set(PKG_CONFIG_STATIC ${_SAVED_PKG_CONFIG_STATIC})
+  endif()
+  
+  if(PANGOCAIRO_FOUND)
     target_compile_definitions(common_deps INTERFACE BA_ENABLE_OS_FONT_RENDERING=1)
     target_link_libraries(ba_deps INTERFACE PkgConfig::PANGOCAIRO)
   endif()
