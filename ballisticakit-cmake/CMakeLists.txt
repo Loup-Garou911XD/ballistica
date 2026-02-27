@@ -81,22 +81,21 @@ else()
   endif()
 
   # Optional: Pango+Cairo for OS font rendering on Linux/macOS cmake builds.
-  # Pass -DREQUIRE_OS_FONT_RENDERING=ON to make this a hard requirement.  
+  # Pass -DREQUIRE_OS_FONT_RENDERING=ON to make this a hard requirement.
   if(REQUIRE_OS_FONT_RENDERING)
     pkg_check_modules(PANGOCAIRO REQUIRED IMPORTED_TARGET pangocairo)
   else()
     pkg_check_modules(PANGOCAIRO IMPORTED_TARGET pangocairo)
   endif()
-  
+  if(PANGOCAIRO_FOUND)
+  target_compile_definitions(common_deps INTERFACE BA_ENABLE_OS_FONT_RENDERING=1)
+  target_link_libraries(ba_deps INTERFACE PkgConfig::PANGOCAIRO)
+  endif()
+
   # Restore static library preferences for other libraries
   if(STATIC_BUILD)
     set(CMAKE_FIND_LIBRARY_SUFFIXES ${_SAVED_FIND_LIBRARY_SUFFIXES})
     set(PKG_CONFIG_STATIC ${_SAVED_PKG_CONFIG_STATIC})
-  endif()
-  
-  if(PANGOCAIRO_FOUND)
-    target_compile_definitions(common_deps INTERFACE BA_ENABLE_OS_FONT_RENDERING=1)
-    target_link_libraries(ba_deps INTERFACE PkgConfig::PANGOCAIRO)
   endif()
 
 endif()
