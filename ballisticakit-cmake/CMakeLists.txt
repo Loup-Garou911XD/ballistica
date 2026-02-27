@@ -28,7 +28,7 @@ add_library(ba_deps INTERFACE)
 
 if(APPLE)
   # Look for homebrew's keg-only OpenAL Soft. We don't want to use Apple's
-  # OpenAL anymore since its deprecated (and buggy as of Tahoe).
+  # OpenAL anymo  re since its deprecated (and buggy as of Tahoe).
   execute_process(
     COMMAND brew --prefix openal-soft
     OUTPUT_VARIABLE _OPENAL_SOFT_PREFIX
@@ -53,7 +53,23 @@ else()
   find_package(PkgConfig REQUIRED)
   
   pkg_check_modules(OPENAL REQUIRED IMPORTED_TARGET openal)
+  
+  # SDL2 has complex X11 transitive dependencies on Linux; force dynamic linking
+  # to avoid linker issues with unresolved X11 symbols when statically linking
+  if(STATIC_BUILD)
+    set(_SAVED_FIND_LIBRARY_SUFFIXES_SDL ${CMAKE_FIND_LIBRARY_SUFFIXES})
+    set(_SAVED_PKG_CONFIG_STATIC_SDL ${PKG_CONFIG_STATIC})
+    set(CMAKE_FIND_LIBRARY_SUFFIXES ".so" ".a")
+    set(PKG_CONFIG_STATIC OFF)
+  endif()
+  
   pkg_check_modules(SDL2 REQUIRED IMPORTED_TARGET sdl2)
+  
+  if(STATIC_BUILD)
+    set(CMAKE_FIND_LIBRARY_SUFFIXES ${_SAVED_FIND_LIBRARY_SUFFIXES_SDL})
+    set(PKG_CONFIG_STATIC ${_SAVED_PKG_CONFIG_STATIC_SDL})
+  endif()
+  
   pkg_check_modules(OGG REQUIRED IMPORTED_TARGET ogg)
   pkg_check_modules(VORBISFILE REQUIRED IMPORTED_TARGET vorbisfile)
   
