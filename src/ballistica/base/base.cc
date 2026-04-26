@@ -13,6 +13,9 @@
 #include "ballistica/base/assets/assets_server.h"
 #include "ballistica/base/audio/audio.h"
 #include "ballistica/base/audio/audio_server.h"
+#if BA_ENABLE_AUTOMATION
+#include "ballistica/base/automation/automation.h"
+#endif
 #include "ballistica/base/discord/discord.h"
 #include "ballistica/base/dynamics/bg/bg_dynamics_server.h"
 #include "ballistica/base/graphics/graphics.h"
@@ -75,13 +78,31 @@ BaseFeatureSet::BaseFeatureSet()
       text_graphics{new TextGraphics()},
       ui{new UI()},
       utils{new Utils()},
-      discord{g_buildconfig.enable_discord() ? new Discord() : nullptr} {
+      // Only spin up Discord where we've actually done the per-platform
+      // plumbing (desktop today). The compile flag alone is not enough:
+      // the SDK itself builds on mobile, but OAuth redirects there need
+      // a registered URL scheme which we haven't wired up. Leaving the
+      // belt-and-suspenders runtime guard prevents an accidental flag
+      // flip from activating a broken code path.
+      discord(
+          (g_buildconfig.enable_discord() && !g_buildconfig.platform_mobile())
+              ? new Discord()
+              : nullptr) {
   // We're a singleton. If there's already one of us, something's wrong.
   assert(g_base == nullptr);
 
   // We modify some app behavior when run under the server manager.
   auto* envval = getenv("BA_SERVER_WRAPPER_MANAGED");
   server_wrapper_managed_ = (envval && strcmp(envval, "1") == 0);
+#if BA_ENABLE_AUTOMATION
+  // Opt-in automation FIFO. Inert unless BA_AUTOMATION_FIFO env
+  // var points at a path; tools/pcommand test_game_run sets it
+  // automatically per-silo. See base/automation/automation.h.
+  if (getenv("BA_AUTOMATION_FIFO") != nullptr
+      && getenv("BA_AUTOMATION_FIFO")[0] != '\0') {
+    automation = new Automation(getenv("BA_AUTOMATION_FIFO"));
+  }
+#endif
 }
 
 void BaseFeatureSet::OnModuleExec(PyObject* module) {
@@ -457,14 +478,9 @@ void BaseFeatureSet::OnAppShutdownComplete() {
 
 void BaseFeatureSet::LogStartupMessage_() {
   char buffer[256];
-  if (g_buildconfig.headless_build()) {
-    snprintf(buffer, sizeof(buffer),
-             "BallisticaKit Headless %s build %d starting...", kEngineVersion,
-             kEngineBuildNumber);
-  } else {
-    snprintf(buffer, sizeof(buffer), "BallisticaKit %s build %d starting...",
-             kEngineVersion, kEngineBuildNumber);
-  }
+  const char* headless_tag = g_buildconfig.headless_build() ? " Headless" : "";
+  snprintf(buffer, sizeof(buffer), "BallisticaKit%s %s build %d starting...",
+           headless_tag, kEngineVersion, kEngineBuildNumber);
   g_core->logging->Log(LogName::kBaApp, LogLevel::kInfo, buffer);
 }
 

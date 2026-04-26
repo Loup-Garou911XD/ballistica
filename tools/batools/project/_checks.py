@@ -22,6 +22,22 @@ if TYPE_CHECKING:
     from batools.project._updater import ProjectUpdater
 
 
+# Cross-featureset private-module imports that are intentionally
+# allowed. Normally a module under featureset ``foo`` can only import
+# ``_private`` modules of its own featureset (``foo._bar``); the
+# check below blocks ``from otherfs._bar import ...`` as a leak of
+# an internal API. A small number of helper modules are designed to
+# be shared across featureset boundaries — list their full dotted
+# module path here. Keep this list short and justify each entry.
+CROSS_FEATURESET_PRIVATE_IMPORT_ALLOWLIST: set[str] = {
+    # The automation control channel's shared plumbing lives in
+    # ``babase._automation`` (``_emit``, ``_badev``, ``screenshot``,
+    # etc.) and is reused by ``bauiv1._automation`` so the two sides
+    # report via the same log format and share one native-hook route.
+    'babase._automation',
+}
+
+
 def check_source_files(self: ProjectUpdater) -> None:
     """Check project source files."""
     for fsrc in self.source_files:
@@ -427,14 +443,19 @@ def _check_python_file_imports(
             )
 
         # If they're importing foo._bar, make sure they are part of
-        # featureset foo.
-        for modulename in modulenames[1:]:
-            if modulename.startswith('_') and modulenames[0] != fsmodulename:
-                raise CleanError(
-                    f'{fname}:{i+1}: import of private module {modulepath}'
-                    f' not allowed from this featureset package'
-                    f' ({fsmodulename}).'
-                )
+        # featureset foo (unless this exact dotted path is in the
+        # allowlist of cross-featureset-shared private modules).
+        if modulepath not in CROSS_FEATURESET_PRIVATE_IMPORT_ALLOWLIST:
+            for modulename in modulenames[1:]:
+                if (
+                    modulename.startswith('_')
+                    and modulenames[0] != fsmodulename
+                ):
+                    raise CleanError(
+                        f'{fname}:{i+1}: import of private module'
+                        f' {modulepath} not allowed from this featureset'
+                        f' package ({fsmodulename}).'
+                    )
 
         # Modules under feature-set package foo should never be using
         # the top level feature-set package foo directly; only
@@ -593,12 +614,16 @@ def check_sync_states(self: ProjectUpdater) -> None:
     # their last sync.
     if (
         subprocess.run(
-            [os.path.join(self.projroot, 'tools/pcommand'), 'sync', 'check'],
+            [
+                os.path.join(self.projroot, 'tools/pcommand'),
+                'efrosync',
+                '--check',
+            ],
             check=False,
         ).returncode
         != 0
     ):
-        raise CleanError('Sync check failed; you may need to run "sync".')
+        raise CleanError('efrosync check failed; you may need to run a sync.')
 
 
 def check_misc(self: ProjectUpdater) -> None:
@@ -617,9 +642,10 @@ def check_misc(self: ProjectUpdater) -> None:
         ) as infile:
             msconfig = infile.read()
             if (
-                '// V2 Master Server ------------------------'
-                '------------------------------------\n'
+                '// Compile-Time Fleet Selection '
+                '------------------------------------------------\n'
                 '\n'
+                '// Exactly one of these should be 1.\n'
                 '// PROD\n'
                 '#if 1\n'
             ) not in msconfig:

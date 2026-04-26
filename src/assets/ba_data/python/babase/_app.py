@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import io
 import os
 import time
 import asyncio
@@ -17,7 +18,6 @@ from efro.threadpool import ThreadPoolExecutorEx
 from efro.util import strip_exception_tracebacks
 
 import _babase
-from babase._discord import DiscordSubsystem
 from babase._language import LanguageSubsystem
 from babase._locale import LocaleSubsystem
 from babase._plugin import PluginSubsystem
@@ -78,6 +78,20 @@ class App:
     #: 10 second network timeouts to happen though.
     SHUTDOWN_TASK_TIMEOUT_SECONDS = 12
 
+    #: Hard deadline for shutdown. The C++ side arms a suicide timer at
+    #: this many seconds from the start of shutdown; if shutdown hasn't
+    #: completed by then we're considered officially hung. On platforms
+    #: where the Python faulthandler can write to fd 2, a traceback dump
+    #: is also armed to fire at this same deadline (so we get a dump of
+    #: every thread before we die) and the suicide timer is extended by
+    #: :attr:`SHUTDOWN_FAULTHANDLER_RUNWAY_SECONDS` to give the dump
+    #: time to finish writing.
+    SHUTDOWN_SUICIDE_TIMEOUT_SECONDS: float = 15.0
+
+    #: Extra time added to the suicide timer on faulthandler-capable
+    #: platforms so the dump has room to complete before we die.
+    SHUTDOWN_FAULTHANDLER_RUNWAY_SECONDS: float = 2.0
+
     def __init__(self) -> None:
         """(internal)
 
@@ -133,11 +147,6 @@ class App:
             PluginSubsystem()
         )
 
-        #: Subsystem for discord functionality
-        self.discord: DiscordSubsystem = self.register_subsystem(
-            DiscordSubsystem()
-        )
-
         #: Subsystem for wrangling metadata.
         self.meta: MetadataSubsystem = MetadataSubsystem()
 
@@ -168,6 +177,7 @@ class App:
         self._native_suspended = False
         self._native_shutdown_called = False
         self._native_shutdown_complete_called = False
+        self._fault_handler_armed = False
         self._initial_sign_in_completed = False
         self._called_on_initing = False
         self._called_on_loading = False
@@ -459,35 +469,103 @@ class App:
             )
         self._shutdown_tasks.append(coro)
 
+    def shutdown_fault_handler_arm(self) -> float:
+        """Arm a Python traceback dump for shutdown diagnostics.
+
+        Called from the C++ shutdown path, colocated with the
+        suicide-timer arm. Returns the number of seconds C++ should use
+        for its suicide timer: :attr:`SHUTDOWN_SUICIDE_TIMEOUT_SECONDS`
+        if the faulthandler dump can't be armed (e.g. ``fd 2`` is not
+        available), or that value plus
+        :attr:`SHUTDOWN_FAULTHANDLER_RUNWAY_SECONDS` if it was armed
+        successfully — the extra time gives the dump room to finish
+        writing before the process is killed.
+
+        Pairs with :meth:`shutdown_fault_handler_disarm`, which is
+        called at the end of ``_pre_interpreter_shutdown``.
+        """
+        import faulthandler
+
+        # Output goes directly to fd 2 rather than sys.stderr because
+        # sys.stderr is replaced by a log-forwarding wrapper (no
+        # fileno()) in headless builds; fd 2 is the raw stderr, which
+        # for headless under basn lands in the task output stream. Only
+        # arm if fd 2 is actually open; on environments without a
+        # stderr attached (Windows GUI with no console, services run
+        # with 2>/dev/null, some embedded setups) the dump would
+        # silently write to a closed fd, so skip the diagnostic in
+        # those cases and let the C++ suicide timer handle the exit on
+        # its own.
+        try:
+            os.fstat(2)
+        except OSError:
+            return self.SHUTDOWN_SUICIDE_TIMEOUT_SECONDS
+        # Flip the armed flag before arming so that if something goes
+        # wrong mid-arm a subsequent disarm still cancels the timer.
+        self._fault_handler_armed = True
+        try:
+            faulthandler.dump_traceback_later(
+                self.SHUTDOWN_SUICIDE_TIMEOUT_SECONDS, exit=False, file=2
+            )
+        except Exception:
+            self._fault_handler_armed = False
+            return self.SHUTDOWN_SUICIDE_TIMEOUT_SECONDS
+        return (
+            self.SHUTDOWN_SUICIDE_TIMEOUT_SECONDS
+            + self.SHUTDOWN_FAULTHANDLER_RUNWAY_SECONDS
+        )
+
+    def shutdown_fault_handler_disarm(self) -> None:
+        """Cancel the shutdown faulthandler dump armed earlier.
+
+        Safe to call even if :meth:`shutdown_fault_handler_arm` was
+        never called or didn't arm anything — in that case it's a
+        no-op.
+        """
+        if not self._fault_handler_armed:
+            return
+        self._fault_handler_armed = False
+        import faulthandler
+
+        faulthandler.cancel_dump_traceback_later()
+
     def _pre_interpreter_shutdown(self) -> None:
         """Called just before interpreter is finalized."""
         import gc
         from babase._env import interpreter_shutdown_sanity_checks
 
-        # Spin down connection pools or whatever else used for
-        # networking.
-        self.net.pre_interpreter_shutdown()
+        try:
+            # Spin down connection pools or whatever else used for
+            # networking.
+            self.net.pre_interpreter_shutdown()
 
-        # Run a last round of cyclic garbage collection - mostly so
-        # we keep ourselves aware of reference cycles that need cleaning
-        # up.
-        self.gc.collect(force=True)
+            # Run a last round of cyclic garbage collection - mostly so
+            # we keep ourselves aware of reference cycles that need
+            # cleaning up.
+            self.gc.collect(force=True)
 
-        # Turn off any garbage-collector debugging or we'll get a huge
-        # dump of stuff as Python is tearing itself down, which we don't
-        # care about.
-        if gc.get_debug() != 0:
-            gc.set_debug(0)
-            # Clear garbage or else we get warnings about uncollectable
-            # objects if we've been running with gc.DEBUG_SAVEALL.
-            gc.garbage.clear()
+            # Turn off any garbage-collector debugging or we'll get a
+            # huge dump of stuff as Python is tearing itself down, which
+            # we don't care about.
+            if gc.get_debug() != 0:
+                gc.set_debug(0)
+                # Clear garbage or else we get warnings about
+                # uncollectable objects if we've been running with
+                # gc.DEBUG_SAVEALL.
+                gc.garbage.clear()
 
-        # Finish up anything the threadpool is working on and kill its
-        # threads.
-        self.threadpool.shutdown()
+            # Finish up anything the threadpool is working on and kill
+            # its threads.
+            self.threadpool.shutdown()
 
-        # General sanity checks for lingering threads/etc.
-        interpreter_shutdown_sanity_checks()
+            # General sanity checks for lingering threads/etc.
+            interpreter_shutdown_sanity_checks()
+        finally:
+            # Cancel the shutdown faulthandler dump armed by the C++
+            # side alongside the suicide timer. If anything above
+            # raises, we still want to cancel so a slow interpreter
+            # finalize doesn't get a spurious dump.
+            self.shutdown_fault_handler_disarm()
 
     def run(self) -> None:
         """Run the app to completion.
@@ -626,6 +704,8 @@ class App:
         """
         assert _babase.in_logic_thread()
         assert not self._initial_sign_in_completed
+
+        lifecyclelog.info('initial-sign-in complete')
 
         # Tell meta it can start scanning extra stuff that just showed
         # up (namely account workspaces).
@@ -852,6 +932,7 @@ class App:
         itself to really 'run'.
         """
         assert _babase.in_logic_thread()
+        lifecyclelog.info('on-loading begin')
 
         # Get meta-system scanning built-in stuff in the bg.
         self.meta.start_scan(scan_complete_cb=self._on_meta_scan_complete)
@@ -873,9 +954,12 @@ class App:
         if self.plus is None:
             _babase.pushcall(self.on_initial_sign_in_complete)
 
+        lifecyclelog.info('on-loading end')
+
     def _on_meta_scan_complete(self) -> None:
         """Called when meta-scan is done doing its thing."""
         assert _babase.in_logic_thread()
+        lifecyclelog.info('meta-scan complete')
 
         # Now that we know what's out there, build our final plugin set.
         self.plugins.on_meta_scan_complete()
@@ -891,6 +975,7 @@ class App:
         and we can actually get started doing whatever we're gonna do.
         """
         assert _babase.in_logic_thread()
+        lifecyclelog.info('on-running begin')
 
         # Let our native layer know.
         _babase.on_app_running()
@@ -928,6 +1013,8 @@ class App:
             # Otherwise tell the app to do its default thing *only* if a
             # plugin hasn't already told it to do something.
             self.set_intent(AppIntentDefault())
+
+        lifecyclelog.info('on-running end')
 
     def _apply_app_config(self) -> None:
         assert _babase.in_logic_thread()
@@ -1059,14 +1146,45 @@ class App:
         """Run a shutdown task; report errors and abort if taking too long."""
 
         task = asyncio.create_task(coro)
-        try:
-            await asyncio.wait_for(task, self.SHUTDOWN_TASK_TIMEOUT_SECONDS)
-        except TimeoutError:
-            # Log simple error message if it times out.
-            balog.error('Timed out waiting for shutdown task %s.', coro)
-        except Exception:
+
+        # Use asyncio.wait (not wait_for) so that if we do time out we
+        # still have an uncancelled Task we can call print_stack() on.
+        # wait_for auto-cancels and awaits the task past the timeout,
+        # which leaves print_stack returning 'No stack for <cancelled
+        # Task ...>' by the time we'd try to use it.
+        done, _pending = await asyncio.wait(
+            [task], timeout=self.SHUTDOWN_TASK_TIMEOUT_SECONDS
+        )
+        if task not in done:
+            # Task hung past our timeout. Snapshot its current
+            # suspended stack so the log names a culprit even when
+            # the faulthandler dump can't reach this phase (the
+            # usual case: shutdown completes normally after the
+            # cancel and _pre_interpreter_shutdown disarms the dump
+            # before the 15s deadline).
+            stack_buf = io.StringIO()
+            try:
+                task.print_stack(file=stack_buf)
+            except Exception:  # pylint: disable=broad-exception-caught
+                stack_buf.write('(failed to capture task stack)')
+            stack_text = stack_buf.getvalue().rstrip() or '(empty)'
+            balog.error(
+                'Timed out waiting for shutdown task %s.'
+                ' Current task stack:\n%s',
+                coro,
+                stack_text,
+            )
+            task.cancel()
+            # Let the cancellation propagate briefly so the coroutine
+            # unwinds cleanly; don't block shutdown indefinitely on a
+            # task that may also be ignoring cancel.
+            try:
+                await asyncio.wait([task], timeout=1.0)
+            except Exception:  # pylint: disable=broad-exception-caught
+                pass
+        elif (exc := task.exception()) is not None:
             # Go with full ugly stack trace for anything unexpected.
-            balog.exception('Error in shutdown task %s.', coro)
+            balog.error('Error in shutdown task %s.', coro, exc_info=exc)
 
     def _on_suspend(self) -> None:
         """Called when the app goes to a suspended state."""

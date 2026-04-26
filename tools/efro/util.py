@@ -1,3 +1,6 @@
+# EfroSynced from ballistica-internal.
+# EFRO_SYNC_HASH=108254279322450116963957420935737493125
+#
 # Released under the MIT License. See LICENSE for details.
 #
 # pylint: disable=too-many-lines
@@ -1070,6 +1073,29 @@ def prune_empty_dirs(prunedir: str) -> None:
                 raise RuntimeError(
                     f'Failed to prune empty dir "{dirpath}": {exc}'
                 ) from exc
+
+
+async def gather_strip(*coros: Any) -> list[Any]:
+    """asyncio.gather() with return_exceptions=True, traceback-stripped.
+
+    A common cause of reference cycles in async code is
+    asyncio.gather called with return_exceptions=True: each
+    coroutine that raised has its exception stored in the result
+    list with its full __traceback__, which keeps the originating
+    frames alive (see :func:`strip_exception_tracebacks`).
+
+    Use this anywhere you'd use ``gather(..., return_exceptions=True)``.
+    It returns the same list of results, but with exception
+    tracebacks already cleared so callers can log/inspect them
+    without creating a cycle.
+    """
+    import asyncio
+
+    results = await asyncio.gather(*coros, return_exceptions=True)
+    for r in results:
+        if isinstance(r, BaseException):
+            strip_exception_tracebacks(r)
+    return results
 
 
 def strip_exception_tracebacks(exc: BaseException) -> None:

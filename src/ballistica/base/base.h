@@ -9,9 +9,15 @@
 #include <string>
 #include <string_view>
 
-#include "ballistica/base/discord/discord.h"
 #include "ballistica/core/support/base_soft.h"
 #include "ballistica/shared/foundation/feature_set_native_component.h"
+
+namespace ballistica::base {
+class Discord;
+#if BA_ENABLE_AUTOMATION
+class Automation;
+#endif
+}  // namespace ballistica::base
 
 // Common header that most everything using our feature-set should include.
 // It predeclares our feature-set's various types and globals and other
@@ -884,6 +890,16 @@ class BaseFeatureSet : public FeatureSetNativeComponent,
   UI* const ui;
   Utils* const utils;
   Discord* const discord;
+#if BA_ENABLE_AUTOMATION
+  // Opt-in FIFO automation channel. Null unless BA_AUTOMATION_FIFO
+  // is set at startup. The whole subsystem is compiled out of
+  // default builds (gated on BA_ENABLE_AUTOMATION, which CMake
+  // sets only when -DENABLE_AUTOMATION=ON). Set in the constructor
+  // body rather than the init list so the #if doesn't sit between
+  // the last initializer and the opening brace (clang-format would
+  // otherwise join those).
+  Automation* automation{};
+#endif
 
   // Non-const components (fixme: clean up access to these).
   TouchInput* touch_input{};
