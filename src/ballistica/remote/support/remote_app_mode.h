@@ -1,0 +1,45 @@
+// Released under the MIT License. See LICENSE for details.
+
+#ifndef BALLISTICA_REMOTE_SUPPORT_REMOTE_APP_MODE_H_
+#define BALLISTICA_REMOTE_SUPPORT_REMOTE_APP_MODE_H_
+
+#include "ballistica/base/app_mode/app_mode.h"
+#include "ballistica/remote/remote.h"
+
+namespace ballistica::remote {
+
+/// App-mode for the remote-control app.
+///
+/// It has two jobs, both of which have to happen in C++:
+///
+/// - Registering ui_v1 as the engine's ui-delegate. ClassicAppMode is the
+///   only other place in the engine that does this, so without us a
+///   classic-less build draws no widgets at all.
+/// - Handing out RemoteInputDelegates so local input can be forwarded to
+///   Python and shipped to the host.
+///
+/// Everything else (discovery, the protocol, the UI) lives in Python.
+class RemoteAppMode : public base::AppMode {
+ public:
+  static auto GetSingleton() -> RemoteAppMode*;
+
+  void OnActivate() override;
+  void OnDeactivate() override;
+
+  auto CreateInputDeviceDelegate(base::InputDevice* device)
+      -> base::InputDeviceDelegate* override;
+
+  /// Fired when an input device asks for a ui while none is up. With the
+  /// controls hidden (which is what lets input reach us at all) this is
+  /// the player's only way back to a menu, so route it to Python.
+  void RequestMainUI() override;
+
+ private:
+  RemoteAppMode();
+
+  ui_v1::UIV1FeatureSet* uiv1_{};
+};
+
+}  // namespace ballistica::remote
+
+#endif  // BALLISTICA_REMOTE_SUPPORT_REMOTE_APP_MODE_H_

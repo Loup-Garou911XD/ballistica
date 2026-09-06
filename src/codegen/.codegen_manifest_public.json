@@ -15,6 +15,7 @@
  "src/ballistica/core/generated/pyembed/binding_core.inc",
  "src/ballistica/core/generated/pyembed/env.inc",
  "src/ballistica/core/generated/python_modules_monolithic.h",
+ "src/ballistica/remote/generated/pyembed/binding_remote.inc",
  "src/ballistica/scene_v1/generated/pyembed/binding_scene_v1.inc",
  "src/ballistica/scene_v1/generated/scene_asset_set.h",
  "src/ballistica/scene_v1/generated/scene_asset_set_unpack.inc",

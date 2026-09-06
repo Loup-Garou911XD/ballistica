@@ -46,6 +46,7 @@ if TYPE_CHECKING:
 
     from baclassic import ClassicAppSubsystem
     from baplus import PlusAppSubsystem
+    from baremote import RemoteAppSubsystem
     from bascenev1 import SceneV1AppSubsystem
     from bauiv1 import UIV1AppSubsystem
 
@@ -402,6 +403,21 @@ class App:
         except Exception:
             balog.exception('Error importing baplus.')
             return None
+
+    @property
+    def remote(self) -> RemoteAppSubsystem:
+        """Our remote subsystem (always available)."""
+        return self._get_subsystem_property(
+            'remote', self._create_remote_subsystem
+        )  # type: ignore
+
+    @staticmethod
+    def _create_remote_subsystem() -> RemoteAppSubsystem:
+        # pylint: disable=cyclic-import
+
+        from baremote import RemoteAppSubsystem
+
+        return RemoteAppSubsystem()
 
     @property
     def scene_v1(self) -> SceneV1AppSubsystem:
@@ -1114,6 +1130,7 @@ class App:
         # Poke these attrs to create all our subsystems.
         _ = self.plus
         _ = self.classic
+        _ = self.remote
         _ = self.scene_v1
         _ = self.ui_v1
 
@@ -1732,10 +1749,12 @@ class DefaultAppModeSelector(AppModeSelector):
         # Ask our default app modes to handle it.
         # (generated from 'default_app_modes' in projectconfig).
         import baclassic
+        import baremote
         import babase
 
         for appmode in [
             baclassic.ClassicAppMode,
+            baremote.RemoteAppMode,
             babase.EmptyAppMode,
         ]:
             if appmode.can_handle_intent(intent):

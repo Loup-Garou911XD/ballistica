@@ -690,7 +690,7 @@ def asset_bundle_build() -> None:
     from efrotools.project import getprojectconfig
 
     from batools.assetpins import is_unresolved_dev
-    from batools.assetbundleprofiles import get_profile
+    from batools.assetbundleprofiles import get_profile, packages_for_project
 
     args = pcommand.get_args()
     if len(args) != 1:
@@ -699,9 +699,15 @@ def asset_bundle_build() -> None:
 
     pconfig = getprojectconfig(pcommand.PROJROOT)
 
-    # Resolve each package's apverid from its projectconfig field.
+    # Resolve each package's apverid from its projectconfig field (or
+    # take the one it carries directly, for packages discovered from the
+    # source tree in a plus-less project).
     resolved: list[tuple[str, BundlePackage]] = []
-    for pkg in profile.packages:
+    for pkg in packages_for_project(profile, str(pcommand.PROJROOT)):
+        if pkg.apverid is not None:
+            resolved.append((pkg.apverid, pkg))
+            continue
+        assert pkg.projectconfig_key is not None
         apverid = pconfig.get(pkg.projectconfig_key)
         if not isinstance(apverid, str) or not apverid:
             raise CleanError(

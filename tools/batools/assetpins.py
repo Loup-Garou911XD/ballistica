@@ -831,6 +831,15 @@ def _discover_pins(projroot: Path) -> list[Pin]:
     return pins
 
 
+def discover_wrapper_apverids(projroot: Path) -> set[str]:
+    """Every asset-package apverid the project's scripts ask for.
+
+    The same set construct-mode resolves at boot, since both come from
+    the meta-scan's ``require asset-package`` lines.
+    """
+    return {pin.apverid for pin in _discover_wrapper_pins(projroot)}
+
+
 def _discover_wrapper_pins(projroot: Path) -> list[Pin]:
     """Walk Python source via bacommon.metascan to find wrappers."""
     from pathlib import Path

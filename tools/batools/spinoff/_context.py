@@ -34,6 +34,26 @@ if TYPE_CHECKING:
     from batools.project import ProjectUpdater
 
 
+#: Paths owned by a feature-set but living outside the five directories
+#: its name maps onto, so not caught by the mechanical omission below.
+#:
+#: Asset-package wrapper modules are what this exists for. They are
+#: server-generated and sit inside the *importing* feature-set's package
+#: rather than the owning one, so e.g. ``bauiv1/_classicassets.py``
+#: would otherwise survive into a classic-less spinoff. That matters
+#: because asset-package requirements are collected by the meta-scan
+#: across all scripts rather than by imports (see
+#: ``babase._constructmode``): merely leaving the file unimported still
+#: makes construct-mode demand the package at boot, which for
+#: baclassicassets means the entire game's art.
+FEATURE_SET_EXTRA_OMIT_PATHS: dict[str, list[str]] = {
+    'classic': [
+        'src/assets/ba_data/python/bauiv1/_classicassets.py',
+        'src/assets/ba_data/python/bauiv1/_docuiv2testassets.py',
+    ],
+}
+
+
 class SpinoffContext:
     """Guts of the spinoff system."""
 
@@ -329,6 +349,8 @@ class SpinoffContext:
 
     def _add_feature_set_omit_paths(self, paths: set[str]) -> None:
         for fsname in sorted(self._src_omit_feature_sets):
+            paths.update(FEATURE_SET_EXTRA_OMIT_PATHS.get(fsname, []))
+
             featureset = self._src_all_feature_sets.get(fsname)
             if featureset is None:
                 raise CleanError(
