@@ -13,6 +13,7 @@
 #include "ballistica/base/input/input.h"
 #include "ballistica/base/logic/logic.h"
 #include "ballistica/base/networking/network_reader.h"
+#include "ballistica/base/networking/networking.h"
 #include "ballistica/core/logging/logging_macros.h"
 #include "ballistica/core/platform/platform.h"
 #include "ballistica/core/platform/support/min_sdl.h"
@@ -21,6 +22,11 @@
 #include "ballistica/shared/generic/utils.h"
 
 namespace ballistica::base {
+
+/// Button index we synthesize a remote's run press onto. Well clear of
+/// the action buttons (0-5) it also sends; JoystickInput is told about it
+/// via set_run_trigger_button so the ui can tell the two apart.
+constexpr int kRemoteRunButton{64};
 
 // Just used privately by the remote-server machinery.
 enum class RemoteAppServer::RemoteEventType {
@@ -54,6 +60,16 @@ void RemoteAppServer::HandleData(int socket, uint8_t* buffer, size_t amt,
   }
   switch (buffer[0]) {
     case BA_PACKET_REMOTE_GAME_QUERY: {
+      // Don't advertise ourselves to remotes we would only turn away.
+      // Answering regardless used to put hosts with the remote-app
+      // setting off into remote scan lists, where connecting to them
+      // just returned kNotAcceptingConnections. It also meant an app
+      // that is itself a remote (and so hosts nothing) still showed up
+      // in its own scans.
+      if (!g_base->networking->remote_server_accepting_connections()) {
+        break;
+      }
+
       // Ship them a response packet with our name.
       char msg[256];
       std::string name = g_core->platform->GetDeviceName();
@@ -443,6 +459,11 @@ auto RemoteAppServer::GetClient(int request_id, struct sockaddr* addr,
           using_v2);   // calibrate in v2; not v1
       clients_[i].joystick_->set_is_remote_app(true);
 
+      // Run reaches us as a synthesized button press rather than an
+      // analog trigger; tell the device which button that is so the ui
+      // path can tell it apart from an action button.
+      clients_[i].joystick_->set_run_trigger_button(kRemoteRunButton);
+
       // If they name they supplied was <= 10 characters, use it as our default
       // player name.
       if (Utils::UTF8StringLength(utf8.c_str()) <= 10) {
@@ -520,11 +541,11 @@ void RemoteAppServer::HandleRemoteEvent(RemoteAppClient* client,
       break;
     case RemoteEventType::kRunPress:
       e.type = BA_JOYBUTTONDOWN;
-      e.jbutton.button = 64;
+      e.jbutton.button = kRemoteRunButton;
       break;
     case RemoteEventType::kRunRelease:
       e.type = BA_JOYBUTTONUP;
-      e.jbutton.button = 64;
+      e.jbutton.button = kRemoteRunButton;
       break;
 
 #pragma clang diagnostic push

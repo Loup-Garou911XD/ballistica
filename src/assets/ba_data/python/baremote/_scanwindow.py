@@ -21,6 +21,12 @@ class ScanWindow(bui.Window):
             root_widget=bui.containerwidget(
                 size=(self._width, self._height),
                 background=False,
+                # Claim cancel rather than letting it walk up to ui_v1's
+                # global back button. This is the app's root screen, so
+                # back has nowhere to go -- but leaving the message
+                # unclaimed makes it bounce around the root widget with
+                # visible side effects.
+                on_cancel_call=self._on_cancel,
             )
         )
 
@@ -112,6 +118,9 @@ class ScanWindow(bui.Window):
         subsystem.client.on_hosts_changed = self._on_hosts_changed
         subsystem.client.set_scanning(True)
 
+    def _on_cancel(self) -> None:
+        """Back on the root screen: nothing to go back to."""
+
     def close(self) -> None:
         """Tear the window down and stop scanning."""
         subsystem = babase.app.remote
@@ -145,7 +154,9 @@ class ScanWindow(bui.Window):
                     size=(460.0, 44.0),
                     label=f'{host.name}  ({host.address})',
                     text_literal=True,
-                    on_activate_call=babase.Call(self._connect, host.address),
+                    on_activate_call=babase.CallStrict(
+                        self._connect, host.address
+                    ),
                 )
             )
 

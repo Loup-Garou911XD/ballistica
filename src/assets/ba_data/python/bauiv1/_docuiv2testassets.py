@@ -1,10 +1,10 @@
 # Released under the MIT License. See LICENSE for details.
 #
 # Auto-generated; do not edit by hand.
-"""Asset-package wrapper for ``a-0.badocuiv2testassets.260718a`` (bauiv1)."""
+"""Asset-package wrapper for ``a-0.badocuiv2testassets.260911`` (bauiv1)."""
 
 # ba_meta require api 9
-# ba_meta require asset-package a-0.badocuiv2testassets.260718a
+# ba_meta require asset-package a-0.badocuiv2testassets.260911
 
 # pylint: disable=useless-suppression
 # pylint: disable=too-many-lines
@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING
 
 from babase import LangStrDir
 
-_ASSET_PACKAGE = 'a-0.badocuiv2testassets.260718a'
+_ASSET_PACKAGE = 'a-0.badocuiv2testassets.260911'
 
 if TYPE_CHECKING:
     from babase import LangStr

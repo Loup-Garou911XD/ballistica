@@ -544,6 +544,45 @@ void Input::OnAppStart() {
   }
 }
 
+void Input::SetOnScreenControlsForced(bool val) {
+  assert(g_base->InLogicThread());
+  on_screen_controls_forced_ = val;
+
+  if (!val || g_core->HeadlessMode()) {
+    return;
+  }
+
+  // Create the controls if the platform didn't already give us a set at
+  // app-start. We never tear them back down: input-devices are not
+  // designed to come and go, and TouchInput draws nothing and emits
+  // nothing while no delegate is attached to a player, so an idle one
+  // costs nothing.
+  if (touch_input_ == nullptr) {
+    touch_input_ = Object::NewDeferred<TouchInput>();
+    PushAddInputDeviceCall(touch_input_, false);
+  }
+
+  // A pointer is a single finger, so pick the style that works with one:
+  // the floating stick, held and dragged, rather than swipe.
+  touch_input_->set_movement_control_type_override(
+      TouchInput::MovementControlType::kJoystick);
+}
+
+auto Input::MouseDrivesTouchInput_() const -> bool {
+  if (touch_input_ == nullptr) {
+    return false;
+  }
+  // The layout editor has always been mouse-drivable so the controls can
+  // be dragged around on desktop.
+  if (touch_input_->editing()) {
+    return true;
+  }
+  // Otherwise only where the app-mode asked for these controls *and* there
+  // is no real touchscreen -- a device with both would deliver each press
+  // twice.
+  return on_screen_controls_forced_ && !g_core->platform->HasTouchScreen();
+}
+
 void Input::OnAppSuspend() {
   assert(g_base->InLogicThread());
   SetGyroEnabled(false);
@@ -1333,10 +1372,11 @@ void Input::HandleMouseMotion_(const Vector2f& position) {
   last_mouse_move_time_ = g_core->AppTimeSeconds();
   mouse_move_count_++;
 
-  // If we have a touch-input in editing mode, pass along events to it. (it
-  // usually handles its own events but here we want it to play nice with
-  // stuff under it by blocking touches, etc)
-  if (touch_input_ && touch_input_->editing()) {
+  // Feed the on-screen touch controls from the mouse where that applies
+  // (see MouseDrivesTouchInput_). They usually handle their own events,
+  // but going through here lets them play nice with stuff under them by
+  // blocking touches, etc.
+  if (MouseDrivesTouchInput_()) {
     touch_input_->HandleTouchMoved(reinterpret_cast<void*>(1), cursor_pos_x_,
                                    cursor_pos_y_);
   }
@@ -1377,10 +1417,20 @@ void Input::HandleMouseDown_(int button, const Vector2f& position) {
   mouse_move_count_++;
 
   // Convert normalized view coords to our virtual ones.
-  cursor_pos_x_ = g_base->graphics->PixelToVirtualX(
-      position.x * g_base->graphics->screen_pixel_width());
-  cursor_pos_y_ = g_base->graphics->PixelToVirtualY(
-      position.y * g_base->graphics->screen_pixel_height());
+  HandleMouseDownAtVirtual_(
+      button,
+      g_base->graphics->PixelToVirtualX(
+          position.x * g_base->graphics->screen_pixel_width()),
+      g_base->graphics->PixelToVirtualY(
+          position.y * g_base->graphics->screen_pixel_height()));
+}
+
+void Input::HandleMouseDownAtVirtual_(int button, float virtual_x,
+                                      float virtual_y) {
+  assert(g_base->InLogicThread());
+
+  cursor_pos_x_ = virtual_x;
+  cursor_pos_y_ = virtual_y;
 
   millisecs_t click_time = g_core->AppTimeMillisecs();
   bool double_click = (click_time - last_click_time_ <= double_click_time_);
@@ -1388,10 +1438,13 @@ void Input::HandleMouseDown_(int button, const Vector2f& position) {
 
   bool handled{};
 
-  // If we have a touch-input in editing mode, pass along events to it.
-  // (it usually handles its own events but here we want it to play nice
-  // with stuff under it by blocking touches, etc)
-  if (touch_input_ && touch_input_->editing()) {
+  // Feed the on-screen touch controls from the mouse where that applies
+  // (see MouseDrivesTouchInput_). They usually handle their own events,
+  // but going through here lets them play nice with stuff under them by
+  // blocking touches, etc.
+  // Only the primary button stands in for a finger; a right-click must
+  // not start dragging the movement stick.
+  if (button == BA_BUTTON_LEFT && MouseDrivesTouchInput_()) {
     handled = touch_input_->HandleTouchDown(reinterpret_cast<void*>(1),
                                             cursor_pos_x_, cursor_pos_y_);
   }
@@ -1451,15 +1504,26 @@ void Input::HandleMouseUp_(int button, const Vector2f& position) {
   mark_input_active();
 
   // Convert normalized view coords to our virtual ones.
-  cursor_pos_x_ = g_base->graphics->PixelToVirtualX(
-      position.x * g_base->graphics->screen_pixel_width());
-  cursor_pos_y_ = g_base->graphics->PixelToVirtualY(
-      position.y * g_base->graphics->screen_pixel_height());
+  HandleMouseUpAtVirtual_(
+      button,
+      g_base->graphics->PixelToVirtualX(
+          position.x * g_base->graphics->screen_pixel_width()),
+      g_base->graphics->PixelToVirtualY(
+          position.y * g_base->graphics->screen_pixel_height()));
+}
 
-  // If we have a touch-input in editing mode, pass along events to it.
-  // It usually handles its own events but here we want it to play nice
-  // with stuff under it by blocking touches, etc.
-  if (touch_input_ && touch_input_->editing()) {
+void Input::HandleMouseUpAtVirtual_(int button, float virtual_x,
+                                    float virtual_y) {
+  assert(g_base->InLogicThread());
+
+  cursor_pos_x_ = virtual_x;
+  cursor_pos_y_ = virtual_y;
+
+  // Feed the on-screen touch controls from the mouse where that applies
+  // (see MouseDrivesTouchInput_). They usually handle their own events,
+  // but going through here lets them play nice with stuff under them by
+  // blocking touches, etc.
+  if (MouseDrivesTouchInput_()) {
     touch_input_->HandleTouchUp(reinterpret_cast<void*>(1), cursor_pos_x_,
                                 cursor_pos_y_);
   }
@@ -1489,16 +1553,15 @@ void Input::PushMouseButtonAtVirtualCoords(int button, float virtual_x,
                                          pressed] {
     assert(g_base->InLogicThread());
 
-    cursor_pos_x_ = virtual_x;
-    cursor_pos_y_ = virtual_y;
+    // Go through the same handlers a real mouse does rather than
+    // straight to the ui, so everything else a click passes through on
+    // the way -- the on-screen touch controls, the manual camera --
+    // sees it too. Anything less makes automation able to drive only
+    // half the app.
     if (pressed) {
-      millisecs_t click_time = g_core->AppTimeMillisecs();
-      bool double_click = (click_time - last_click_time_ <= double_click_time_);
-      last_click_time_ = click_time;
-      g_base->ui->HandleMouseDown(button, cursor_pos_x_, cursor_pos_y_,
-                                  double_click);
+      HandleMouseDownAtVirtual_(button, virtual_x, virtual_y);
     } else {
-      g_base->ui->HandleMouseUp(button, cursor_pos_x_, cursor_pos_y_);
+      HandleMouseUpAtVirtual_(button, virtual_x, virtual_y);
     }
   });
 }
@@ -1509,17 +1572,11 @@ void Input::PushMouseClickAtVirtualCoords(int button, float virtual_x,
   g_base->logic->event_loop()->PushCall([this, button, virtual_x, virtual_y] {
     assert(g_base->InLogicThread());
 
-    // Set cursor pos and dispatch through the same UI entry point
-    // real mouse events use, so modals / hit-testing / focus
-    // chains all behave normally.
-    cursor_pos_x_ = virtual_x;
-    cursor_pos_y_ = virtual_y;
-    millisecs_t click_time = g_core->AppTimeMillisecs();
-    bool double_click = (click_time - last_click_time_ <= double_click_time_);
-    last_click_time_ = click_time;
-    g_base->ui->HandleMouseDown(button, cursor_pos_x_, cursor_pos_y_,
-                                double_click);
-    g_base->ui->HandleMouseUp(button, cursor_pos_x_, cursor_pos_y_);
+    // Dispatch through the same handlers real mouse events use, so
+    // modals / hit-testing / focus chains behave normally and anything
+    // else in the click path (the on-screen touch controls) sees it.
+    HandleMouseDownAtVirtual_(button, virtual_x, virtual_y);
+    HandleMouseUpAtVirtual_(button, virtual_x, virtual_y);
   });
 }
 
@@ -1532,18 +1589,21 @@ void Input::PushMouseDragAtVirtualCoords(int button, float virtual_x,
     assert(g_base->InLogicThread());
 
     // Down at the start point, interpolated motion towards the end
-    // point, then up there — the same UI entry points real events use.
-    cursor_pos_x_ = virtual_x;
-    cursor_pos_y_ = virtual_y;
-    g_base->ui->HandleMouseDown(button, cursor_pos_x_, cursor_pos_y_, false);
+    // point, then up there -- through the same handlers real events
+    // use, so the touch controls can be dragged from automation too.
+    HandleMouseDownAtVirtual_(button, virtual_x, virtual_y);
     int stepsfull = std::max(1, steps);
     for (int i = 1; i <= stepsfull; ++i) {
       float amt = static_cast<float>(i) / static_cast<float>(stepsfull);
       cursor_pos_x_ = virtual_x + (virtual_end_x - virtual_x) * amt;
       cursor_pos_y_ = virtual_y + (virtual_end_y - virtual_y) * amt;
+      if (MouseDrivesTouchInput_()) {
+        touch_input_->HandleTouchMoved(reinterpret_cast<void*>(1),
+                                       cursor_pos_x_, cursor_pos_y_);
+      }
       g_base->ui->HandleMouseMotion(cursor_pos_x_, cursor_pos_y_);
     }
-    g_base->ui->HandleMouseUp(button, cursor_pos_x_, cursor_pos_y_);
+    HandleMouseUpAtVirtual_(button, cursor_pos_x_, cursor_pos_y_);
   });
 }
 
@@ -1568,12 +1628,13 @@ void Input::HandleMouseCancel_(int button, const Vector2f& position) {
   cursor_pos_y_ = g_base->graphics->PixelToVirtualY(
       position.y * g_base->graphics->screen_pixel_height());
 
-  // If we have a touch-input in editing mode, pass along events to it.
-  // It usually handles its own events but here we want it to play nice
-  // with stuff under it by blocking touches, etc.
+  // Feed the on-screen touch controls from the mouse where that applies
+  // (see MouseDrivesTouchInput_). They usually handle their own events,
+  // but going through here lets them play nice with stuff under them by
+  // blocking touches, etc.
   //
   // FIXME - passing as touch-up.
-  if (touch_input_ && touch_input_->editing()) {
+  if (MouseDrivesTouchInput_()) {
     touch_input_->HandleTouchUp(reinterpret_cast<void*>(1), cursor_pos_x_,
                                 cursor_pos_y_);
   }

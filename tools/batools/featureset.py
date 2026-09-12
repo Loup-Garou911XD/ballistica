@@ -37,6 +37,7 @@ class FeatureSet:
     allow_as_soft_requirement: bool
     dummy_module_def: DummyModuleDef
     cpp_namespace_check_disable_files: set[str]
+    spinoff_extra_omit_paths: set[str]
 
     def __init__(self, name: str):
 
@@ -105,6 +106,21 @@ class FeatureSet:
         #: (generally external-originating code that doesn't conform to our
         #: ballistica feature-set based namespace scheme)
         self.cpp_namespace_check_disable_files = set()
+
+        #: Project-relative paths that belong to us but live outside the
+        #: five directories our name maps onto, so spinoff's mechanical
+        #: name-based omission won't catch them. Spinoff strips these
+        #: along with the rest of us when we are omitted.
+        #:
+        #: Asset-package wrapper modules are what this exists for: they
+        #: are server-generated and sit inside the *importing*
+        #: feature-set's package rather than the owning one. Merely
+        #: leaving such a file unimported is not enough, since
+        #: asset-package requirements are collected by the meta-scan
+        #: across all scripts rather than by imports (see
+        #: ``babase._constructmode``) -- construct-mode would still
+        #: demand the package at boot.
+        self.spinoff_extra_omit_paths = set()
 
         self.validate_name(name)
 

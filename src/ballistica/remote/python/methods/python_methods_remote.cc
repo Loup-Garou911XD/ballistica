@@ -2,10 +2,12 @@
 
 #include "ballistica/remote/python/methods/python_methods_remote.h"
 
+#include <cstdio>
 #include <vector>
 
 #include "ballistica/base/base.h"
 #include "ballistica/core/core.h"
+#include "ballistica/core/platform/platform.h"
 #include "ballistica/remote/support/remote_app_mode.h"
 #include "ballistica/remote/support/remote_input_delegate.h"
 #include "ballistica/shared/python/python_command.h"
@@ -33,46 +35,6 @@ static PyMethodDef PyRemoteAppModeActivateDef = {
     ":meta private:",
 };
 
-// ----------------------- remote_app_mode_deactivate --------------------------
-
-static auto PyRemoteAppModeDeactivate(PyObject* self) -> PyObject* {
-  BA_PYTHON_TRY;
-  BA_PRECONDITION(g_base->InLogicThread());
-  // Our C++ app-mode's OnDeactivate() does the actual work.
-  Py_RETURN_NONE;
-  BA_PYTHON_CATCH;
-}
-
-static PyMethodDef PyRemoteAppModeDeactivateDef = {
-    "remote_app_mode_deactivate",            // name
-    (PyCFunction)PyRemoteAppModeDeactivate,  // method
-    METH_NOARGS,                             // flags
-
-    "remote_app_mode_deactivate() -> None\n"
-    "\n"
-    ":meta private:",
-};
-
-// ---------------- remote_app_mode_handle_app_intent_default ------------------
-
-static auto PyRemoteAppModeHandleAppIntentDefault(PyObject* self) -> PyObject* {
-  BA_PYTHON_TRY;
-  BA_PRECONDITION(g_base->InLogicThread());
-  // Nothing to do; our Python app-mode brings its own UI up on activate.
-  Py_RETURN_NONE;
-  BA_PYTHON_CATCH;
-}
-
-static PyMethodDef PyRemoteAppModeHandleAppIntentDefaultDef = {
-    "remote_app_mode_handle_app_intent_default",         // name
-    (PyCFunction)PyRemoteAppModeHandleAppIntentDefault,  // method
-    METH_NOARGS,                                         // flags
-
-    "remote_app_mode_handle_app_intent_default() -> None\n"
-    "\n"
-    ":meta private:\n",
-};
-
 // ------------------ remote_app_mode_handle_app_intent_exec -------------------
 
 static auto PyRemoteAppModeHandleAppIntentExec(PyObject* self, PyObject* args,
@@ -84,11 +46,10 @@ static auto PyRemoteAppModeHandleAppIntentExec(PyObject* self, PyObject* args,
                                    const_cast<char**>(kwlist), &command)) {
     return nullptr;
   }
-  bool success = PythonCommand(command, BA_BUILD_COMMAND_FILENAME)
-                     .Exec(true, nullptr, nullptr);
-  if (!success) {
-    // Matching EmptyAppMode here; intents have no success channel yet.
-  }
+  // Return value ignored, matching EmptyAppMode; intents have no success
+  // channel yet.
+  PythonCommand(command, BA_BUILD_COMMAND_FILENAME)
+      .Exec(true, nullptr, nullptr);
   Py_RETURN_NONE;
   BA_PYTHON_CATCH;
 }
@@ -134,15 +95,49 @@ static PyMethodDef PySetInputAttachedDef = {
     "on-screen touch controls appear.",
 };
 
+// ---------------------------- get_broadcast_addrs ----------------------------
+
+static auto PyGetBroadcastAddrs(PyObject* self) -> PyObject* {
+  BA_PYTHON_TRY;
+  auto addrs = g_core->platform->GetBroadcastAddrs();
+  PyObject* list = PyList_New(0);
+  for (uint32_t addr : addrs) {
+    char buffer[16];
+    snprintf(buffer, sizeof(buffer), "%d.%d.%d.%d",
+             static_cast<int>((addr >> 24) & 0xFF),
+             static_cast<int>((addr >> 16) & 0xFF),
+             static_cast<int>((addr >> 8) & 0xFF),
+             static_cast<int>(addr & 0xFF));
+    PyObject* str = PyUnicode_FromString(buffer);
+    PyList_Append(list, str);
+    Py_DECREF(str);
+  }
+  return list;
+  BA_PYTHON_CATCH;
+}
+
+static PyMethodDef PyGetBroadcastAddrsDef = {
+    "get_broadcast_addrs",             // name
+    (PyCFunction)PyGetBroadcastAddrs,  // method
+    METH_NOARGS,                       // flags
+
+    "get_broadcast_addrs() -> list[str]\n"
+    "\n"
+    ":meta private:\n"
+    "\n"
+    "The broadcast address of each of this machine's IPv4 interfaces,\n"
+    "derived from their real netmasks. This is the same enumeration the\n"
+    "engine's own LAN game scan uses.",
+};
+
 // -----------------------------------------------------------------------------
 
 auto PythonMethodsRemote::GetMethods() -> std::vector<PyMethodDef> {
   return {
       PyRemoteAppModeActivateDef,
-      PyRemoteAppModeDeactivateDef,
-      PyRemoteAppModeHandleAppIntentDefaultDef,
       PyRemoteAppModeHandleAppIntentExecDef,
       PySetInputAttachedDef,
+      PyGetBroadcastAddrsDef,
   };
 }
 

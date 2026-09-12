@@ -4,6 +4,9 @@
 
 #include "ballistica/base/base.h"
 #include "ballistica/base/graphics/graphics.h"
+#include "ballistica/base/input/device/input_device.h"
+#include "ballistica/base/input/device/touch_input.h"
+#include "ballistica/base/input/input.h"
 #include "ballistica/base/ui/ui.h"
 #include "ballistica/core/core.h"
 #include "ballistica/remote/python/remote_python.h"
@@ -41,6 +44,14 @@ void RemoteAppMode::OnActivate() {
     // Nothing has faded us in yet at this point; do it ourselves or we
     // sit at a black screen forever.
     g_base->graphics->FadeScreen(true, 250, nullptr);
+
+    // Our action-button art is plain quads from the builtin package
+    // rather than classic's pre-positioned meshes (see
+    // baremote._baseassets), so the cluster has to be laid out at draw
+    // time or all four buttons land on the same spot.
+    if (auto* touch = g_base->input->touch_input()) {
+      touch->set_action_button_meshes_prepositioned(false);
+    }
   }
 }
 
@@ -57,6 +68,14 @@ void RemoteAppMode::OnDeactivate() {
   }
 }
 
+auto RemoteAppMode::AcceptsRemoteAppConnections() const -> bool {
+  return false;
+}
+
+auto RemoteAppMode::WantsUDPListener() const -> bool { return false; }
+
+auto RemoteAppMode::ForcesOnScreenControls() const -> bool { return true; }
+
 auto RemoteAppMode::CreateInputDeviceDelegate(base::InputDevice* device)
     -> base::InputDeviceDelegate* {
   return Object::NewDeferred<RemoteInputDelegate>();
@@ -64,7 +83,24 @@ auto RemoteAppMode::CreateInputDeviceDelegate(base::InputDevice* device)
 
 void RemoteAppMode::RequestMainUI() {
   assert(g_base->InLogicThread());
-  g_remote->python->RequestMainUI();
+
+  // Escape and a gamepad's start button both land here, and they mean
+  // opposite things for us: start is the host's pause button, while
+  // escape is a 'back' aimed at our own ui. UI::RequestMainUI_ records
+  // the device that asked just before calling us, so that is how we tell
+  // them apart.
+  //
+  // Only a real controller counts as start. The engine resolves the
+  // escape key's device 'fuzzily' (Input::GetFuzzyInputDeviceForEscapeKey)
+  // and can hand back whichever device happens to be attached to a
+  // player -- and every device looks attached to us while we are
+  // connected, since RemoteInputDelegate tracks that globally. Asking
+  // for a controller specifically keeps an ambiguous attribution on the
+  // safe side: our own ui, rather than a stray press sent to the host.
+  auto* device = g_base->ui->GetMainUIInputDevice();
+  bool from_controller = device != nullptr && device->IsController();
+
+  g_remote->python->RequestMainUI(from_controller);
 }
 
 }  // namespace ballistica::remote

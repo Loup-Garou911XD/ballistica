@@ -180,11 +180,26 @@ class Networking {
   void OnAppUnsuspend();
 
   auto remote_server_accepting_connections() -> bool {
-    return remote_server_accepting_connections_;
+    return remote_server_accepting_connections_
+           && app_mode_accepts_remote_app_connections_;
+  }
+
+  /// Whether an inbound UDP listener should be open on our port; pushed
+  /// down to the network-reader. See AppMode::WantsUDPListener.
+  void SetUDPListenerEnabled(bool val);
+
+  /// The app-mode's half of the gate above; pushed here by set_app_mode()
+  /// as modes switch. Mirrored into a plain bool rather than read through
+  /// a virtual call because this predicate is consulted from the
+  /// network-reader thread, where the current app-mode object is not
+  /// safe to touch.
+  void set_app_mode_accepts_remote_app_connections(bool val) {
+    app_mode_accepts_remote_app_connections_ = val;
   }
 
  private:
   bool remote_server_accepting_connections_{true};
+  bool app_mode_accepts_remote_app_connections_{true};
 };
 
 }  // namespace ballistica::base

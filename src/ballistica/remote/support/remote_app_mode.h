@@ -34,6 +34,20 @@ class RemoteAppMode : public base::AppMode {
   /// the player's only way back to a menu, so route it to Python.
   void RequestMainUI() override;
 
+  /// We are a controller, not a host: never advertise ourselves as a game
+  /// to connect to, and never answer our own discovery broadcasts.
+  auto AcceptsRemoteAppConnections() const -> bool override;
+
+  /// Nor do we ever listen. Our client socket sends from an ephemeral
+  /// port and hosts reply to it there, so binding the game port would do
+  /// nothing but keep a real game on this machine from hosting.
+  auto WantsUDPListener() const -> bool override;
+
+  /// Being a controller is the whole app, so we want the engine's own
+  /// on-screen stick and action buttons wherever we run -- not just on
+  /// the phones that normally get them.
+  auto ForcesOnScreenControls() const -> bool override;
+
  private:
   RemoteAppMode();
 

@@ -835,9 +835,20 @@ def discover_wrapper_apverids(projroot: Path) -> set[str]:
     """Every asset-package apverid the project's scripts ask for.
 
     The same set construct-mode resolves at boot, since both come from
-    the meta-scan's ``require asset-package`` lines.
+    the meta-scan's ``require asset-package`` lines. Goes straight to the
+    scan results rather than through :func:`_discover_wrapper_pins`,
+    which re-reads every wrapper module off disk to classify it -- work
+    that would all be discarded here.
     """
-    return {pin.apverid for pin in _discover_wrapper_pins(projroot)}
+    from bacommon.metascan import DirectoryScan
+
+    python_root = projroot / 'src/assets/ba_data/python'
+    if not python_root.is_dir():
+        return set()
+
+    scanner = DirectoryScan(paths=[str(python_root)])
+    scanner.run()
+    return set(scanner.results.asset_packages)
 
 
 def _discover_wrapper_pins(projroot: Path) -> list[Pin]:

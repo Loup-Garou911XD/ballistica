@@ -1,24 +1,38 @@
 # Released under the MIT License. See LICENSE for details.
 #
-"""The widget control surface.
+"""The widget overlay.
 
-An on-screen gamepad built out of plain bauiv1 widgets. This exists
-alongside the native control surface (keyboard / gamepad / the engine's
-own touch controls) and is the one meant to be customized: subclass it
-and override the ``create_*`` methods to lay the controls out
-differently, and everything below -- state, protocol, networking --
-keeps working unchanged.
+Playing happens on the engine's own natively drawn controls -- a floating
+analog stick plus four action buttons, see ``base::TouchInput``. This
+window is the overlay you get on top of those: run, menu, disconnect, and
+the way back to playing. Escape toggles between the two.
+
+Steering and the action buttons deliberately do *not* live here. A
+buttonwidget has no press/release pair and no drag, only
+``on_activate_call`` (which fires on release) and ``repeat`` -- so a
+widget d-pad can only ever be digital, with held state inferred from
+repeat ticks. The native stick does real analog aim and true
+press/release, so it owns those.
+
+What remains here is the customization point: subclass and override
+:meth:`~ControlWindow.create_extras` to lay the overlay out differently,
+and everything below -- state, protocol, networking -- keeps working
+unchanged. A subclass that wants momentary controls back can wire a
+``repeat=True`` button to ``on_activate_call=babase.CallStrict(self._hold,
+bit)``; :meth:`~ControlWindow._update` samples those deadlines at 30hz.
 
 Because this window sits on the screen stack, the engine treats a main-ui
-as visible and stops routing input to our native delegate. So while this
-window is up it is the only thing driving the controller; its 'Use
-gamepad' button takes it off screen to hand control back to the native
-surface, and a menu/start press brings it back.
+as visible and stops routing input to our native delegate -- which also
+takes the native controls off screen. So the two surfaces are never up at
+once.
 
-One wrinkle worth knowing about: buttonwidget has no press/release pair,
-only ``on_activate_call`` (which fires on release) and ``repeat``. So
-held state is inferred -- each repeat tick pushes a deadline out, and the
-button reads as released once that deadline passes.
+Every control here is non-selectable on purpose. Mouse and touch still
+work (button hit-testing keys off 'enabled', not 'selectable'), but the
+controls stay out of gamepad/keyboard navigation -- otherwise a start
+press would activate whichever one happened to be selected, and hitting
+'Use joystick' or 'Disconnect' by accident is exactly the close/reopen
+flicker this surface must not have. A gamepad's only interactions here
+are cancel (hide) and start (already handled by the engine).
 """
 
 from typing import TYPE_CHECKING
@@ -31,10 +45,14 @@ from baremote import _protocol
 if TYPE_CHECKING:
     from typing import Callable
 
-#: How long a button stays 'held' after its last repeat tick. Must
-#: comfortably exceed the widget repeat interval or buttons will
-#: stutter; too long and releases feel mushy.
-HOLD_TIMEOUT = 0.15
+#: How long a control stays 'held' after its last activation.
+#:
+#: ButtonWidget repeats on a 0.3s timer (see button_widget.cc), so a
+#: repeating control needs this to clear that interval or a genuinely
+#: held button reads as released between ticks and stutters. Menu is the
+#: only user of it in this layout -- a tap the host sees as one edge --
+#: but a subclass adding repeating controls depends on the margin.
+HOLD_TIMEOUT = 0.45
 
 #: State sampling rate. Matches the client's send rate.
 _UPDATE_INTERVAL = 1.0 / 30.0
@@ -52,11 +70,8 @@ class ControlWindow(bui.Window):
         self._on_hide = on_hide
         self._width, self._height = babase.get_virtual_screen_size()
 
-        #: bit -> time at which it stops counting as held.
-        self._held: dict[int, float] = {}
-
-        #: direction name -> time at which it stops counting as held.
-        self._dirs: dict[str, float] = {}
+        #: protocol button bit -> time it stops counting as held.
+        self._deadlines: dict[int, float] = {}
 
         #: Run is a latch rather than a hold. Set up here rather than in
         #: create_extras() so a subclass overriding that method doesn't
@@ -68,11 +83,16 @@ class ControlWindow(bui.Window):
             root_widget=bui.containerwidget(
                 size=(self._width, self._height),
                 background=False,
+                # Claim cancel ourselves. Left unhandled it walks up to
+                # ui_v1's global back button, which bounces through
+                # RootWidget::BackPress and back down as another cancel
+                # -- with nothing here to catch it the result is an
+                # unpredictable close/reopen rather than a decision.
+                # Back means 'switch to the gamepad surface'.
+                on_cancel_call=self._on_hide,
             )
         )
 
-        self.create_dpad()
-        self.create_action_buttons()
         self.create_extras()
 
         self._timer: babase.AppTimer | None = babase.AppTimer(
@@ -80,30 +100,6 @@ class ControlWindow(bui.Window):
         )
 
     # ------------------------------------------------------- extension points
-
-    def create_dpad(self) -> None:
-        """Build the directional controls. Override to restyle."""
-        cx = 180.0
-        cy = 180.0
-        size = (80.0, 80.0)
-
-        self._dir_button((cx, cy + 85.0), size, 'Up', 'up')
-        self._dir_button((cx, cy - 85.0), size, 'Down', 'down')
-        self._dir_button((cx - 85.0, cy), size, 'Left', 'left')
-        self._dir_button((cx + 85.0, cy), size, 'Right', 'right')
-
-    def create_action_buttons(self) -> None:
-        """Build the action buttons. Override to restyle."""
-        cx = self._width - 180.0
-        cy = 180.0
-        size = (90.0, 90.0)
-
-        self._hold_button((cx, cy - 90.0), size, 'Jump', _protocol.BUTTON_JUMP)
-        self._hold_button((cx + 95.0, cy), size, 'Bomb', _protocol.BUTTON_BOMB)
-        self._hold_button(
-            (cx - 95.0, cy), size, 'Punch', _protocol.BUTTON_PUNCH
-        )
-        self._hold_button((cx, cy + 90.0), size, 'Grab', _protocol.BUTTON_THROW)
 
     def create_extras(self) -> None:
         """Build run / menu / disconnect. Override to restyle."""
@@ -120,6 +116,7 @@ class ControlWindow(bui.Window):
             size=(140.0, 44.0),
             label='Run: off',
             text_literal=True,
+            selectable=False,
             on_activate_call=self._toggle_run,
         )
 
@@ -129,7 +126,11 @@ class ControlWindow(bui.Window):
             size=(140.0, 44.0),
             label='Menu',
             text_literal=True,
-            on_activate_call=self._menu_press,
+            selectable=False,
+            # A momentary tap; the host only cares about the edge.
+            on_activate_call=babase.CallStrict(
+                self._hold, _protocol.BUTTON_MENU
+            ),
         )
 
         bui.buttonwidget(
@@ -138,19 +139,26 @@ class ControlWindow(bui.Window):
             size=(140.0, 44.0),
             label='Disconnect',
             text_literal=True,
+            selectable=False,
             on_activate_call=self._on_disconnect,
         )
 
         # Taking these controls off screen is what lets the native
-        # surface work: the engine only routes input to our delegate
-        # while no main-ui is visible. The menu/start button on a
-        # gamepad brings them back.
+        # surface work: the engine only routes input to our delegate --
+        # and only draws its own stick and action buttons -- while no
+        # main-ui is visible. Escape brings us back.
+        #
+        # Note for anyone driving the *host's* menus from here: Bomb is
+        # what goes back over there. The host turns our bomb bit into a
+        # widget cancel; our Menu button becomes a start, which opens
+        # and pauses rather than backs out.
         bui.buttonwidget(
             parent=self._root_widget,
-            position=(self._width - 360.0, top),
-            size=(160.0, 44.0),
-            label='Use gamepad',
+            position=(self._width - 380.0, top),
+            size=(180.0, 44.0),
+            label='Use joystick (esc)',
             text_literal=True,
+            selectable=False,
             on_activate_call=self._on_hide,
         )
 
@@ -159,8 +167,7 @@ class ControlWindow(bui.Window):
     def close(self) -> None:
         """Tear the window down and release every held control."""
         self._timer = None
-        self._held.clear()
-        self._dirs.clear()
+        self._deadlines.clear()
         self._run_latched = False
         babase.app.remote.state.reset()
         if self._root_widget:
@@ -168,47 +175,8 @@ class ControlWindow(bui.Window):
 
     # ---------------------------------------------------------------- interna
 
-    def _hold_button(
-        self,
-        position: tuple[float, float],
-        size: tuple[float, float],
-        label: str,
-        bit: int,
-    ) -> bui.Widget:
-        return bui.buttonwidget(
-            parent=self._root_widget,
-            position=position,
-            size=size,
-            label=label,
-            text_literal=True,
-            repeat=True,
-            enable_sound=False,
-            on_activate_call=babase.Call(self._hold, bit),
-        )
-
-    def _dir_button(
-        self,
-        position: tuple[float, float],
-        size: tuple[float, float],
-        label: str,
-        direction: str,
-    ) -> bui.Widget:
-        return bui.buttonwidget(
-            parent=self._root_widget,
-            position=position,
-            size=size,
-            label=label,
-            text_literal=True,
-            repeat=True,
-            enable_sound=False,
-            on_activate_call=babase.Call(self._hold_dir, direction),
-        )
-
     def _hold(self, bit: int) -> None:
-        self._held[bit] = babase.apptime() + HOLD_TIMEOUT
-
-    def _hold_dir(self, direction: str) -> None:
-        self._dirs[direction] = babase.apptime() + HOLD_TIMEOUT
+        self._deadlines[bit] = babase.apptime() + HOLD_TIMEOUT
 
     def _toggle_run(self) -> None:
         self._run_latched = not self._run_latched
@@ -223,14 +191,15 @@ class ControlWindow(bui.Window):
                 text_literal=True,
             )
 
-    def _menu_press(self) -> None:
-        # A momentary tap; the host only cares about the edge.
-        self._held[_protocol.BUTTON_MENU] = babase.apptime() + HOLD_TIMEOUT
-
     def _update(self) -> None:
         state = babase.app.remote.state
         now = babase.apptime()
 
+        # Menu is the only one of these this layout can hold. The rest
+        # are listed so that anything the *native* controls left pressed
+        # gets released: the engine stops routing input to them the
+        # moment we go up, so they never get to send the release
+        # themselves and the host would otherwise see the button stuck.
         for bit in (
             _protocol.BUTTON_JUMP,
             _protocol.BUTTON_PUNCH,
@@ -238,12 +207,10 @@ class ControlWindow(bui.Window):
             _protocol.BUTTON_THROW,
             _protocol.BUTTON_MENU,
         ):
-            state.set_button(bit, self._held.get(bit, 0.0) > now)
+            state.set_button(bit, self._deadlines.get(bit, 0.0) > now)
 
-        right = self._dirs.get('right', 0.0) > now
-        left = self._dirs.get('left', 0.0) > now
-        up = self._dirs.get('up', 0.0) > now
-        down = self._dirs.get('down', 0.0) > now
-
-        state.axis_h = (1.0 if right else 0.0) - (1.0 if left else 0.0)
-        state.axis_v = (1.0 if up else 0.0) - (1.0 if down else 0.0)
+        # Same reasoning for aim: nothing here steers, so hold it neutral
+        # rather than letting the stick's last reading walk the character
+        # around while this window is up.
+        state.axis_h = 0.0
+        state.axis_v = 0.0

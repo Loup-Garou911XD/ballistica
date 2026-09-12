@@ -16,7 +16,7 @@ class RemotePython {
   void HandleInputCommand(InputType type, float value);
 
   /// Ask Python to put a ui back on screen.
-  void RequestMainUI();
+  void RequestMainUI(bool from_controller);
 
   /// Specific Python objects we hold in objs_.
   enum class ObjID {

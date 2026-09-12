@@ -34,6 +34,16 @@ void Networking::ApplyAppConfig() {
   }
 }
 
+void Networking::SetUDPListenerEnabled(bool val) {
+  // The network-reader's port state is owned by the main thread (see
+  // Networking::ApplyAppConfig, which hops there to set it), and we are
+  // called from the logic thread as app-modes switch.
+  g_base->app_adapter->PushMainThreadCall([val] {
+    assert(g_core->InMainThread());
+    g_base->network_reader->SetListenerEnabled(val);
+  });
+}
+
 void Networking::OnAppSuspend() {}
 
 void Networking::OnAppUnsuspend() {}

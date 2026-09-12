@@ -48,10 +48,12 @@ void RemotePython::HandleInputCommand(InputType type, float value) {
   objs_.Get(ObjID::kHandleInputCommandCall).Call(args);
 }
 
-void RemotePython::RequestMainUI() {
+void RemotePython::RequestMainUI(bool from_controller) {
   assert(g_base->InLogicThread());
 
-  objs_.Get(ObjID::kRequestMainUICall).Call();
+  PythonRef args(Py_BuildValue("(i)", static_cast<int>(from_controller)),
+                 PythonRef::kSteal);
+  objs_.Get(ObjID::kRequestMainUICall).Call(args);
 }
 
 }  // namespace ballistica::remote

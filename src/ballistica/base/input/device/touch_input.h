@@ -3,6 +3,7 @@
 #ifndef BALLISTICA_BASE_INPUT_DEVICE_TOUCH_INPUT_H_
 #define BALLISTICA_BASE_INPUT_DEVICE_TOUCH_INPUT_H_
 
+#include <optional>
 #include <string>
 
 #include "ballistica/base/input/device/input_device.h"
@@ -28,6 +29,28 @@ class TouchInput : public InputDevice {
   enum class MovementControlType { kJoystick, kSwipe };
   enum class ActionControlType { kButtons, kSwipe };
 
+  /// Whether the supplied action-button meshes carry their own position
+  /// offsets within the button cluster. Classic's do, and that is why no
+  /// spread is applied when drawing them. An app-mode supplying plain
+  /// quads instead (see babase.BaseAssetSet) turns this off so the
+  /// cluster gets laid out at draw time; leaving it on would stack all
+  /// four buttons on the same spot.
+  void set_action_button_meshes_prepositioned(bool val) {
+    action_button_meshes_prepositioned_ = val;
+  }
+
+  /// Pin the movement style, ignoring the app-config setting. For
+  /// app-modes that bring these controls up themselves and have a
+  /// specific style in mind (see AppMode::ForcesOnScreenControls); pass
+  /// nullopt to go back to honoring the config.
+  void set_movement_control_type_override(
+      std::optional<MovementControlType> val) {
+    movement_control_type_override_ = val;
+    if (val.has_value()) {
+      movement_control_type_ = *val;
+    }
+  }
+
  protected:
   auto DoGetDeviceName() -> std::string override;
 
@@ -35,6 +58,8 @@ class TouchInput : public InputDevice {
   void UpdateDPad();
   void UpdateButtons(bool new_touch = false);
   MovementControlType movement_control_type_{MovementControlType::kSwipe};
+  std::optional<MovementControlType> movement_control_type_override_;
+  bool action_button_meshes_prepositioned_{true};
   ActionControlType action_control_type_{ActionControlType::kButtons};
   float controls_scale_move_{1.0f};
   float controls_scale_actions_{1.0f};

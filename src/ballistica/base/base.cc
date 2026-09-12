@@ -96,6 +96,13 @@ BaseFeatureSet::BaseFeatureSet()
   auto* envval = getenv("BA_SERVER_WRAPPER_MANAGED");
   server_wrapper_managed_ = (envval && strcmp(envval, "1") == 0);
 #if BA_ENABLE_AUTOMATION
+  // Stand up the automation capabilities. Compiling them in is itself
+  // the opt-in -- CMake defines BA_ENABLE_AUTOMATION only for
+  // -DENABLE_AUTOMATION=ON, which is developer builds -- so there is
+  // nothing further to gate on here. Headless gets one too: its
+  // non-visual helpers work, and the screenshot path simply never runs
+  // since no frame is ever rendered.
+  automation = new Automation();
 #endif
 }
 
@@ -508,8 +515,21 @@ void BaseFeatureSet::set_app_mode(AppMode* mode) {
     // so this stays false through the boot-time bring-up phase.
     app_mode_is_real_.store(mode != EmptyAppMode::GetSingleton());
 
+    // Likewise for the remote-app server gate; the network-reader thread
+    // reads it and can't call into the mode itself.
+    networking->set_app_mode_accepts_remote_app_connections(
+        mode->AcceptsRemoteAppConnections());
+
+    // ..and whether we should be holding the game port open at all. A
+    // mode that only ever initiates conversations wants no listener.
+    networking->SetUDPListenerEnabled(mode->WantsUDPListener());
+
     // App modes each provide their own input-device delegate types.
     input->RebuildInputDeviceDelegates();
+
+    // ..and each decides whether it wants the engine's on-screen controls
+    // present regardless of what the platform offers.
+    input->SetOnScreenControlsForced(mode->ForcesOnScreenControls());
 
     app_mode_->OnActivate();
 

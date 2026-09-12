@@ -47,7 +47,8 @@ class BundlePackage:
     #: Explicit apverid, for packages discovered from the source tree
     #: rather than pinned in projectconfig (see
     #: :func:`packages_for_project`). Exactly one of this and
-    #: :attr:`projectconfig_key` is set.
+    #: :attr:`projectconfig_key` is set; profiles declared below always
+    #: use the key, so only discovered packages carry this.
     apverid: str | None = None
 
 
@@ -121,6 +122,8 @@ def packages_for_project(
     """
     from pathlib import Path
 
+    from efrotools.project import getprojectconfig
+
     from batools.featureset import FeatureSet
 
     # Only gui profiles feed a drawing build, and only a plus-less
@@ -132,23 +135,32 @@ def packages_for_project(
     if 'plus' in fsets:
         return profile.packages
 
-    # Reuse the pin discovery that already knows how to find every
+    # Reuse the discovery that already knows how to find every
     # ``# ba_meta require asset-package`` line in the tree.
     from batools.assetpins import discover_wrapper_apverids
 
     template = profile.packages[0]
     wanted = discover_wrapper_apverids(Path(projroot))
 
-    # Keep the declared (projectconfig-pinned) packages as-is so the
-    # builtin construct package keeps coming from its pin, and add
-    # anything else the tree asks for at the same flavor.
-    declared_names = {
-        _package_name(p.apverid) for p in profile.packages if p.apverid
-    }
+    # Whatever the profile already declares stays as-is, so the builtin
+    # construct package keeps coming from its projectconfig pin; we only
+    # add what the tree asks for on top, at the same flavor. Resolve the
+    # declared pins once here rather than per discovered package.
+    pconfig = getprojectconfig(Path(projroot))
+    declared_names: set[str] = set()
+    for pkg in profile.packages:
+        pinned = (
+            pconfig.get(pkg.projectconfig_key)
+            if pkg.projectconfig_key
+            else pkg.apverid
+        )
+        if isinstance(pinned, str) and pinned:
+            declared_names.add(_package_name(pinned))
+
     out = list(profile.packages)
     for apverid in sorted(wanted):
         name = _package_name(apverid)
-        if name in declared_names or _is_pinned_builtin(apverid, projroot):
+        if name in declared_names:
             continue
         out.append(
             BundlePackage(
@@ -166,15 +178,3 @@ def _package_name(apverid: str) -> str:
     """``a-0.bauiv1assets.260831a`` -> ``bauiv1assets``."""
     parts = apverid.split('.')
     return parts[1] if len(parts) > 1 else apverid
-
-
-def _is_pinned_builtin(apverid: str, projroot: str) -> bool:
-    """Whether this apverid is already covered by the projectconfig pin."""
-    from pathlib import Path
-
-    from efrotools.project import getprojectconfig
-
-    pinned = getprojectconfig(Path(projroot)).get('assets')
-    return isinstance(pinned, str) and _package_name(pinned) == _package_name(
-        apverid
-    )

@@ -109,3 +109,56 @@ def test_first_ack_after_connect_can_resync() -> None:
 
     assert not client._unacked
     assert client._next_state_id == 200
+
+
+def test_dedupe_hosts_collapses_one_machine() -> None:
+    """A host answering on loopback and its LAN address is one game.
+
+    We broadcast to both, so the same host replies twice; listing it
+    twice would look like two separate games.
+    """
+    from baremote._client import HostInfo, _dedupe_hosts
+
+    hosts = [
+        HostInfo(address='127.0.0.1', name='louptop'),
+        HostInfo(address='192.168.29.70', name='louptop'),
+    ]
+
+    out = _dedupe_hosts(hosts)
+
+    assert len(out) == 1
+    # The routable address wins; it is the one that also works from
+    # another device.
+    assert out[0].address == '192.168.29.70'
+
+    # Order of arrival must not matter.
+    assert _dedupe_hosts(list(reversed(hosts)))[0].address == '192.168.29.70'
+
+
+def test_dedupe_hosts_keeps_distinct_machines() -> None:
+    """Different hosts stay separate."""
+    from baremote._client import HostInfo, _dedupe_hosts
+
+    out = _dedupe_hosts(
+        [
+            HostInfo(address='192.168.29.70', name='louptop'),
+            HostInfo(address='192.168.29.81', name='other-box'),
+        ]
+    )
+    assert [h.name for h in out] == ['louptop', 'other-box']
+
+
+def test_menu_bit_round_trips() -> None:
+    """A menu pulse is what the host reads as its start button.
+
+    Guards the bit the app-mode sets when a single ui-request press is
+    forwarded to the host instead of opening our own controls.
+    """
+    from baremote import _protocol
+
+    state = RemoteState()
+    state.set_button(_protocol.BUTTON_MENU, True)
+    assert state.snapshot()[0] & _protocol.BUTTON_MENU
+
+    state.set_button(_protocol.BUTTON_MENU, False)
+    assert not state.snapshot()[0] & _protocol.BUTTON_MENU

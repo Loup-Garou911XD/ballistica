@@ -140,6 +140,11 @@ auto BuiltinStrings::Audio::MusicPlayError(LangStr::Sub music)
                        {{"music", std::move(music)}});
 }
 
+auto BuiltinStrings::Device::ThermalFrameRateCap()
+    -> std::shared_ptr<const LangStr> {
+  return MakeResource_("strings/device/thermal_frame_rate_cap");
+}
+
 auto BuiltinStrings::Input::Axis(LangStr::Sub number)
     -> std::shared_ptr<const LangStr> {
   return MakeResource_("strings/input/axis", {{"number", std::move(number)}});
@@ -277,6 +282,11 @@ auto BuiltinStrings::Net::DeviceTimeIncorrect(LangStr::Sub hours)
     -> std::shared_ptr<const LangStr> {
   return MakeResource_("strings/net/device_time_incorrect",
                        {{"hours", std::move(hours)}});
+}
+
+auto BuiltinStrings::Net::HostOlderVersionCharacters()
+    -> std::shared_ptr<const LangStr> {
+  return MakeResource_("strings/net/host_older_version_characters");
 }
 
 auto BuiltinStrings::Net::IncompatibleNewerVersionHost()

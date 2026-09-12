@@ -65,51 +65,21 @@ class HostInfo:
     last_seen: float = field(default=0.0)
 
 
-def _local_addresses() -> set[str]:
-    """Best-effort set of this machine's own IPv4 addresses.
-
-    We need these because our own process is also listening on the game
-    port and answers discovery unconditionally, so without filtering the
-    remote would happily list itself as a host.
-    """
-    addrs: set[str] = set()
-
-    # The address we'd use to reach the outside world. UDP connect sends
-    # nothing, it just picks a route.
-    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    try:
-        sock.connect(('8.8.8.8', 1))
-        addrs.add(sock.getsockname()[0])
-    except OSError:
-        pass
-    finally:
-        sock.close()
-
-    try:
-        addrs.update(socket.gethostbyname_ex(socket.gethostname())[2])
-    except OSError:
-        pass
-
-    addrs.add('127.0.0.1')
-    return addrs
-
-
 def _broadcast_addresses() -> list[str]:
     """Addresses worth aiming a discovery broadcast at.
 
-    There is no engine helper exposed to Python for this, so we take the
-    global broadcast plus a /24 guess per local address. Anything more
-    exotic is what the manual-address field is for.
+    The per-interface broadcast addresses come from the engine, which
+    derives them from each interface's real netmask -- the same routine
+    the engine's own LAN scan uses. Loopback is added explicitly because
+    a broadcast does not necessarily reach a host on this same machine,
+    which is the common way people first try this out.
     """
-    out = ['255.255.255.255']
-    for addr in _local_addresses():
-        if addr.startswith('127.'):
-            continue
-        parts = addr.split('.')
-        if len(parts) == 4:
-            guess = '.'.join(parts[:3] + ['255'])
-            if guess not in out:
-                out.append(guess)
+    import _baremote
+
+    out = ['255.255.255.255', '127.0.0.1']
+    for addr in _baremote.get_broadcast_addrs():
+        if addr not in out:
+            out.append(addr)
     return out
 
 
@@ -133,10 +103,19 @@ class RemoteClient:
         self._stop = threading.Event()
         self._sock: socket.socket | None = None
 
-        self._local_addrs: set[str] = set()
         self._scanning = False
         self._last_scan_send = 0.0
         self._hosts: dict[str, HostInfo] = {}
+
+        #: Worked out once per scan session rather than per tick;
+        #: interface addresses do not meaningfully change mid-scan.
+        self._bcast_addrs: list[str] = []
+
+        #: Last list handed to on_hosts_changed, or None when a report
+        #: is owed regardless. Deduping collapses several raw address
+        #: changes into the same result, and rebuilding the host list
+        #: widgets for an identical list is pure churn.
+        self._reported: list[HostInfo] | None = None
 
         self._connstate = ConnectionState.IDLE
         self._host_addr: tuple[str, int] | None = None
@@ -160,8 +139,6 @@ class RemoteClient:
     def start(self) -> None:
         """Bring the socket and worker thread up."""
         assert self._thread is None
-
-        self._local_addrs = _local_addresses()
 
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
@@ -195,13 +172,30 @@ class RemoteClient:
 
     def set_scanning(self, scanning: bool) -> None:
         """Start or stop broadcasting for hosts."""
+        # Off-thread work: this reaches into the native layer, so do it
+        # here (set_scanning is called from the logic thread) rather than
+        # on the worker thread's scan tick.
+        bcast = _broadcast_addresses() if scanning else []
+
         with self._lock:
             self._scanning = scanning
+            self._bcast_addrs = bcast
+            # Force the report below through even if the list is
+            # unchanged: a listener that attached after a host was
+            # already found needs the current state, not the next
+            # change.
+            self._reported = None
             if not scanning:
                 self._hosts.clear()
             else:
                 # Send one immediately rather than waiting out a tick.
                 self._last_scan_send = 0.0
+
+        # Always hand the listener the current list, even when empty.
+        # Reporting only on *change* would leave a listener that
+        # attached after a host was already found waiting forever for an
+        # event that had already happened.
+        self._report_hosts()
 
     def connect(self, address: str, name: str, tag: str) -> None:
         """Begin a handshake with the host at ``address``."""
@@ -265,19 +259,14 @@ class RemoteClient:
             babase.pushcall(call, from_other_thread=True)
 
     def _set_input_attached(self, attached: bool) -> None:
-        # Native gating has to happen on the logic thread. disconnect()
-        # is reachable from both threads (app-mode deactivate and app
-        # shutdown both call it from the logic thread), and pushcall
-        # complains if handed from_other_thread while already there.
+        # Native gating has to happen on the logic thread; _push is what
+        # knows how to get there from either side.
         def _do() -> None:
             import _baremote
 
             _baremote.set_input_attached(attached)
 
-        if babase.in_logic_thread():
-            _do()
-        else:
-            self._push(_do)
+        self._push(_do)
 
     def _run(self) -> None:
         sock = self._sock
@@ -285,7 +274,21 @@ class RemoteClient:
 
         while not self._stop.is_set():
             try:
-                readable, _, _ = select.select([sock], [], [], 0.01)
+                # Only a live connection needs sub-frame responsiveness;
+                # discovery replies arrive at 1hz and an idle client has
+                # nothing at all to do. The thread outlives both states
+                # (it is only stopped at app shutdown), so polling at the
+                # connected rate throughout would burn wakeups for the
+                # whole session.
+                with self._lock:
+                    connstate = self._connstate
+                    scanning = self._scanning
+                if connstate is ConnectionState.IDLE:
+                    timeout = 0.05 if scanning else 0.25
+                else:
+                    timeout = 0.01
+
+                readable, _, _ = select.select([sock], [], [], timeout)
                 if readable:
                     self._drain(sock)
                 self._tick()
@@ -321,10 +324,11 @@ class RemoteClient:
             pass
 
     def _handle_game_response(self, data: bytes, addr: tuple[str, int]) -> None:
-        # Skip ourselves; our own engine answers these unconditionally.
-        if addr[0] in self._local_addrs:
-            return
-
+        # No self-filtering here on purpose. Our app-mode turns the
+        # engine's remote-app server off, so we never answer our own
+        # broadcasts -- and filtering by address instead would hide a
+        # real host running on this same machine, which is exactly how
+        # people try this out first.
         name = _protocol.parse_game_response(data)
         if name is None:
             return
@@ -426,11 +430,12 @@ class RemoteClient:
             scanning = self._scanning
             connstate = self._connstate
             host_addr = self._host_addr
+            bcast_addrs = self._bcast_addrs
 
         if scanning and now - self._last_scan_send >= _SCAN_INTERVAL:
             self._last_scan_send = now
             query = _protocol.pack_game_query()
-            for baddr in _broadcast_addresses():
+            for baddr in bcast_addrs:
                 self._send(query, (baddr, _protocol.PORT))
             self._expire_hosts(now)
 
@@ -496,9 +501,15 @@ class RemoteClient:
         if self.on_hosts_changed is None:
             return
         with self._lock:
-            hosts = sorted(self._hosts.values(), key=lambda h: h.name)
+            deduped = _dedupe_hosts(list(self._hosts.values()))
+            unchanged = self._reported is not None and [
+                (h.address, h.name) for h in deduped
+            ] == [(h.address, h.name) for h in self._reported]
+            self._reported = deduped
+        if unchanged:
+            return
         call = self.on_hosts_changed
-        self._push(lambda: call(hosts))
+        self._push(lambda: call(deduped))
 
     def _report_disconnected(self, reason: str | None) -> None:
         if self.on_disconnected is None:
@@ -517,3 +528,20 @@ def _describe_error(err: _protocol.RemoteError | None) -> str | None:
     if err is _protocol.RemoteError.NOT_CONNECTED:
         return 'The host dropped our connection.'
     return None
+
+
+def _dedupe_hosts(hosts: list[HostInfo]) -> list[HostInfo]:
+    """Collapse one host answering on several of its addresses.
+
+    We broadcast to loopback as well as the subnet, so a host sharing
+    this machine answers twice -- once as 127.0.0.1 and once as its LAN
+    address -- and would otherwise appear as two games. The reply
+    carries only a device name, so that is what we key on; a routable
+    address wins over loopback since it is the one that also works from
+    another device.
+    """
+    best: dict[str, HostInfo] = {}
+    # Loopback sorts last, so setdefault keeps the routable address.
+    for host in sorted(hosts, key=lambda h: h.address.startswith('127.')):
+        best.setdefault(host.name, host)
+    return sorted(best.values(), key=lambda h: h.name)

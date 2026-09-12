@@ -3,18 +3,12 @@
 """Provides the Remote App-Subsystem."""
 
 import uuid
-import logging
-from typing import TYPE_CHECKING, override
+from typing import override
 
 import babase
 
 from baremote._state import RemoteState
 from baremote._client import RemoteClient
-
-if TYPE_CHECKING:
-    pass
-
-logger = logging.getLogger('ba.remote')
 
 
 class RemoteAppSubsystem(babase.AppSubsystem):
