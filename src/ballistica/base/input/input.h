@@ -116,6 +116,14 @@ class Input {
   auto ShouldCompletelyIgnoreInputDevice(InputDevice* input_device) -> bool;
 
   auto touch_input() const -> TouchInput* { return touch_input_; }
+
+  /// Bring the engine's on-screen touch controls up (or let them go)
+  /// on behalf of the active app-mode; see
+  /// AppMode::ForcesOnScreenControls. Normally these exist only on
+  /// touchscreen devices, where real touch events drive them. When an
+  /// app-mode asks for them on a platform without a touchscreen, the
+  /// mouse drives them instead.
+  void SetOnScreenControlsForced(bool val);
   auto have_non_touch_inputs() const -> bool { return have_non_touch_inputs_; }
   auto have_button_using_inputs() const -> bool {
     return have_button_using_inputs_;
@@ -285,7 +293,11 @@ class Input {
   void* single_touch_{};
   KeyboardInput* keyboard_input_{};
   KeyboardInput* keyboard_input_2_{};
+  auto MouseDrivesTouchInput_() const -> bool;
+  void HandleMouseDownAtVirtual_(int button, float virtual_x, float virtual_y);
+  void HandleMouseUpAtVirtual_(int button, float virtual_x, float virtual_y);
   TouchInput* touch_input_{};
+  bool on_screen_controls_forced_{};
   HandleKeyPressCall* keyboard_input_capture_press_{};
   HandleKeyReleaseCall* keyboard_input_capture_release_{};
   HandleJoystickEventCall* joystick_input_capture_{};

@@ -34,6 +34,7 @@ if TYPE_CHECKING:
     from batools.project import ProjectUpdater
 
 
+
 class SpinoffContext:
     """Guts of the spinoff system."""
 
@@ -335,6 +336,10 @@ class SpinoffContext:
                     f"src_omit_feature_sets entry '{featureset}' not found"
                     f' on src project.'
                 )
+
+            # Anything of ours living outside the five name-derived dirs
+            # below (asset-package wrapper modules, mainly).
+            paths.update(featureset.spinoff_extra_omit_paths)
 
             # Omit its config file.
             # Make sure this featureset exists on src.

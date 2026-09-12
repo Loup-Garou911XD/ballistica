@@ -33,6 +33,25 @@ void NetworkReader::SetPort(int port) {
   thread_ = new std::thread(RunThreadStatic_, this);
 }
 
+void NetworkReader::SetListenerEnabled(bool enabled) {
+  {
+    std::scoped_lock<std::mutex> lock(paused_mutex_);
+    if (listener_enabled_ == enabled) {
+      return;
+    }
+    listener_enabled_ = enabled;
+  }
+
+  // Wake the reader so it acts on this: either dropping its sockets on
+  // the way out of a read (the same path app-suspend uses) or opening
+  // them. A poke only lands while it has a socket to poke, so notify the
+  // condvar too -- that is what reaches it while it sits parked.
+  if (!enabled && port4_ != -1) {
+    PokeSelf_();
+  }
+  paused_cv_.notify_all();
+}
+
 void NetworkReader::OnAppSuspend() {
   assert(g_core->InMainThread());
   assert(!paused_);
@@ -195,13 +214,23 @@ auto NetworkReader::RunThread_() -> int {
   // Do this whole thing in a loop. If we get put to sleep we just start
   // over.
   while (true) {
-    // Sleep until we're unpaused.
-    if (paused_) {
+    // Sleep until we're both unpaused and actually wanted.
+    {
       std::unique_lock<std::mutex> lock(paused_mutex_);
-      paused_cv_.wait(lock, [this] { return (!paused_); });
+      paused_cv_.wait(lock, [this] { return !paused_ && listener_enabled_; });
     }
 
     OpenSockets_();
+
+    // We may have wound up with nothing to listen on -- every bind
+    // failed, or BA_NO_UDP_LISTENER opted us out. Park until something
+    // changes rather than polling an empty descriptor set, which would
+    // spin this thread at full tilt.
+    if (sd4_ == -1 && sd6_ == -1) {
+      std::unique_lock<std::mutex> lock(paused_mutex_);
+      paused_cv_.wait(lock, [this] { return paused_ || !listener_enabled_; });
+      continue;
+    }
 
     // Now just listen and forward messages along.
     char buffer[10000];
@@ -268,9 +297,9 @@ auto NetworkReader::RunThread_() -> int {
         } else {
           assert(from_size >= 0);
           auto rresult2{static_cast<size_t>(rresult)};
-          // If we get *any* data while paused, kill both our sockets (we
-          // ping ourself for this purpose).
-          if (paused_) {
+          // If we get *any* data while paused or switched off, kill both
+          // our sockets (we ping ourself for this purpose).
+          if (paused_ || !listener_enabled_) {
             // This needs to be locked during any sd changes/writes.
             std::scoped_lock lock(sd_mutex_);
             if (sd4_ != -1) {

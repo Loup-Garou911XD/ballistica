@@ -1,7 +1,7 @@
 # Released under the MIT License. See LICENSE for details.
 #
 # Auto-generated; do not edit by hand.
-"""Asset-package wrapper for ``a-0.babuiltinassets.260831h`` (babase).
+"""Asset-package wrapper for ``a-0.babuiltinassets.260910`` (babase).
 
 Bare minimum assets always bundled with the engine.
 
@@ -9,7 +9,7 @@ These are loaded at launch and always available in the C++ layer.
 """
 
 # ba_meta require api 9
-# ba_meta require asset-package a-0.babuiltinassets.260831h
+# ba_meta require asset-package a-0.babuiltinassets.260910
 
 # pylint: disable=useless-suppression
 # pylint: disable=too-many-lines
@@ -21,7 +21,7 @@ from babase._assetref import AssetGroup
 
 from babase._language import LangStrDir
 
-_ASSET_PACKAGE = 'a-0.babuiltinassets.260831h'
+_ASSET_PACKAGE = 'a-0.babuiltinassets.260910'
 
 if TYPE_CHECKING:
     import datetime
@@ -317,6 +317,27 @@ if TYPE_CHECKING:
                 English: "Error playing music: {music}"
             """
 
+    class StringsDeviceGroup:
+        """
+        ::
+
+            Device-state notices: messages about the hardware the game is
+            running on, such as thermal throttling.
+
+            See source for the full asset list.
+        """
+
+        #: ::
+        #:
+        #:     Screen-message shown once per run on Android when the game
+        #:     deliberately drops its frame rate to 60hz because the OS reports
+        #:     severe thermal throttling; only shown on devices whose display
+        #:     would otherwise run faster than 60hz.
+        #:
+        #:     English: "Device is running hot; frame rate reduced to 60 until
+        #:     it cools."
+        thermal_frame_rate_cap: LangStr
+
     class StringsInputGroup:
         """
         ::
@@ -601,6 +622,17 @@ if TYPE_CHECKING:
                 is likely to cause problems. Please check your time and
                 time-zone settings."
             """
+
+        #: ::
+        #:
+        #:     Yellow warning screen-message shown right after successfully
+        #:     joining a multiplayer game hosted by an older version of the
+        #:     game; warns that newer character skins may render as older ones
+        #:     there.
+        #:
+        #:     English: "This server is running an older game version - some new
+        #:     characters may show up as older ones."
+        host_older_version_characters: LangStr
 
         #: ::
         #:
@@ -1428,6 +1460,7 @@ if TYPE_CHECKING:
         account: StringsAccountGroup
         assets: StringsAssetsGroup
         audio: StringsAudioGroup
+        device: StringsDeviceGroup
         input: StringsInputGroup
         net: StringsNetGroup
         plugins: StringsPluginsGroup
@@ -1483,8 +1516,8 @@ if TYPE_CHECKING:
     #: ``overlay_guide``, ``vr_fade``, ``vr_overlay``). Full list in source.
     meshes: MeshesGroup
 
-    #: The ``strings`` group - 128 strings (``account``, ``assets``, ``audio``,
-    #: ``input``, ``net``, and 123 more). Full list in source.
+    #: The ``strings`` group - 130 strings (``account``, ``assets``, ``audio``,
+    #: ``device``, ``input``, and 125 more). Full list in source.
     strings: StringsGroup
 
     #: The ``textures`` group - 25 assets (``black``, ``black_cube``,
@@ -1538,6 +1571,7 @@ _TREE = {
             'signing_in': (),
         },
         'audio': {'music_play_error': ('music',)},
+        'device': {'thermal_frame_rate_cap': ()},
         'input': {
             'axis': ('number',),
             'button': ('number',),
@@ -1568,6 +1602,7 @@ _TREE = {
             'connection_failed_version_mismatch': (),
             'connection_rejected': (),
             'device_time_incorrect': ('hours',),
+            'host_older_version_characters': (),
             'incompatible_newer_version_host': (),
             'incompatible_version_host': (),
             'incompatible_version_player': ('name',),

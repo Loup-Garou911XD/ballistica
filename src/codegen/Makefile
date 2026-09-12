@@ -39,6 +39,7 @@ sources: \
   $(PROJ_SRC_DIR)/ballistica/core/generated/pyembed/binding_core.inc \
   $(PROJ_SRC_DIR)/ballistica/core/generated/pyembed/env.inc \
   $(PROJ_SRC_DIR)/ballistica/core/generated/python_modules_monolithic.h \
+  $(PROJ_SRC_DIR)/ballistica/remote/generated/pyembed/binding_remote.inc \
   $(PROJ_SRC_DIR)/ballistica/scene_v1/generated/pyembed/binding_scene_v1.inc \
   $(PROJ_SRC_DIR)/ballistica/scene_v1/generated/scene_asset_set.h \
   $(PROJ_SRC_DIR)/ballistica/scene_v1/generated/scene_asset_set_unpack.inc \
@@ -47,7 +48,7 @@ sources: \
   $(PROJ_SRC_DIR)/ballistica/ui_v1/generated/ui_asset_set.h \
   $(PROJ_SRC_DIR)/ballistica/ui_v1/generated/ui_asset_set_unpack.inc
 
-$(PROJ_SRC_DIR)/ballistica/core/generated/python_modules_monolithic.h : $(PROJ_DIR)/pconfig/featuresets/featureset_base.py $(PROJ_DIR)/pconfig/featuresets/featureset_classic.py $(PROJ_DIR)/pconfig/featuresets/featureset_core.py $(PROJ_DIR)/pconfig/featuresets/featureset_plus.py $(PROJ_DIR)/pconfig/featuresets/featureset_scene_v1.py $(PROJ_DIR)/pconfig/featuresets/featureset_scene_v1_lib.py $(PROJ_DIR)/pconfig/featuresets/featureset_template_fs.py $(PROJ_DIR)/pconfig/featuresets/featureset_ui_v1.py $(PROJ_DIR)/pconfig/featuresets/featureset_ui_v1_lib.py
+$(PROJ_SRC_DIR)/ballistica/core/generated/python_modules_monolithic.h : $(PROJ_DIR)/pconfig/featuresets/featureset_base.py $(PROJ_DIR)/pconfig/featuresets/featureset_classic.py $(PROJ_DIR)/pconfig/featuresets/featureset_core.py $(PROJ_DIR)/pconfig/featuresets/featureset_plus.py $(PROJ_DIR)/pconfig/featuresets/featureset_remote.py $(PROJ_DIR)/pconfig/featuresets/featureset_scene_v1.py $(PROJ_DIR)/pconfig/featuresets/featureset_scene_v1_lib.py $(PROJ_DIR)/pconfig/featuresets/featureset_template_fs.py $(PROJ_DIR)/pconfig/featuresets/featureset_ui_v1.py $(PROJ_DIR)/pconfig/featuresets/featureset_ui_v1_lib.py
 	@$(PCOMMAND) gen_monolithic_register_modules $@
 
 $(PROJ_SRC_DIR)/ballistica/base/generated/pyembed/binding_base.inc : babasecodegen/pyembed/binding_base.py
@@ -64,6 +65,9 @@ $(PROJ_SRC_DIR)/ballistica/core/generated/pyembed/binding_core.inc : bacorecodeg
 
 $(PROJ_SRC_DIR)/ballistica/core/generated/pyembed/env.inc : bacorecodegen/pyembed/env.py
 	@$(PCOMMAND) gen_pyembed $< $@ encrypt=0 ctx=*ctx
+
+$(PROJ_SRC_DIR)/ballistica/remote/generated/pyembed/binding_remote.inc : baremotecodegen/pyembed/binding_remote.py
+	@$(PCOMMAND) gen_binding_code $< $@
 
 $(PROJ_SRC_DIR)/ballistica/scene_v1/generated/pyembed/binding_scene_v1.inc : bascenev1codegen/pyembed/binding_scene_v1.py
 	@$(PCOMMAND) gen_binding_code $< $@

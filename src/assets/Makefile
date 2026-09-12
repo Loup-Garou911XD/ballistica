@@ -230,6 +230,7 @@ SCRIPT_TARGETS_PY_PUBLIC = \
   $(BUILD_DIR)/ba_data/python/babase/_meta.py \
   $(BUILD_DIR)/ba_data/python/babase/_net.py \
   $(BUILD_DIR)/ba_data/python/babase/_plugin.py \
+  $(BUILD_DIR)/ba_data/python/babase/_remoteassets.py \
   $(BUILD_DIR)/ba_data/python/babase/_simpledialog.py \
   $(BUILD_DIR)/ba_data/python/babase/_stringedit.py \
   $(BUILD_DIR)/ba_data/python/babase/_text.py \
@@ -268,6 +269,18 @@ SCRIPT_TARGETS_PY_PUBLIC = \
   $(BUILD_DIR)/ba_data/python/baplus/_cloud.py \
   $(BUILD_DIR)/ba_data/python/baplus/_consolesession.py \
   $(BUILD_DIR)/ba_data/python/baplus/_hooks.py \
+  $(BUILD_DIR)/ba_data/python/baremote/__init__.py \
+  $(BUILD_DIR)/ba_data/python/baremote/_appmode.py \
+  $(BUILD_DIR)/ba_data/python/baremote/_appsubsystem.py \
+  $(BUILD_DIR)/ba_data/python/baremote/_baseassets.py \
+  $(BUILD_DIR)/ba_data/python/baremote/_client.py \
+  $(BUILD_DIR)/ba_data/python/baremote/_controlwindow.py \
+  $(BUILD_DIR)/ba_data/python/baremote/_hooks.py \
+  $(BUILD_DIR)/ba_data/python/baremote/_nativecontrols.py \
+  $(BUILD_DIR)/ba_data/python/baremote/_protocol.py \
+  $(BUILD_DIR)/ba_data/python/baremote/_scanwindow.py \
+  $(BUILD_DIR)/ba_data/python/baremote/_state.py \
+  $(BUILD_DIR)/ba_data/python/baremote/_uiassets.py \
   $(BUILD_DIR)/ba_data/python/bascenev1/__init__.py \
   $(BUILD_DIR)/ba_data/python/bascenev1/_activity.py \
   $(BUILD_DIR)/ba_data/python/bascenev1/_activitytypes.py \

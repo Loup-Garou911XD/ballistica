@@ -643,6 +643,16 @@ set(BALLISTICA_SOURCES
   ${BA_SRC_ROOT}/ballistica/core/support/base_soft.h
   ${BA_SRC_ROOT}/ballistica/core/support/core_config.cc
   ${BA_SRC_ROOT}/ballistica/core/support/core_config.h
+  ${BA_SRC_ROOT}/ballistica/remote/python/methods/python_methods_remote.cc
+  ${BA_SRC_ROOT}/ballistica/remote/python/methods/python_methods_remote.h
+  ${BA_SRC_ROOT}/ballistica/remote/python/remote_python.cc
+  ${BA_SRC_ROOT}/ballistica/remote/python/remote_python.h
+  ${BA_SRC_ROOT}/ballistica/remote/remote.cc
+  ${BA_SRC_ROOT}/ballistica/remote/remote.h
+  ${BA_SRC_ROOT}/ballistica/remote/support/remote_app_mode.cc
+  ${BA_SRC_ROOT}/ballistica/remote/support/remote_app_mode.h
+  ${BA_SRC_ROOT}/ballistica/remote/support/remote_input_delegate.cc
+  ${BA_SRC_ROOT}/ballistica/remote/support/remote_input_delegate.h
   ${BA_SRC_ROOT}/ballistica/scene_v1/assets/scene_asset.cc
   ${BA_SRC_ROOT}/ballistica/scene_v1/assets/scene_asset.h
   ${BA_SRC_ROOT}/ballistica/scene_v1/assets/scene_collision_mesh.cc

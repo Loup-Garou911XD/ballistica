@@ -509,6 +509,16 @@
     <ClInclude Include="..\..\src\ballistica\core\support\base_soft.h" />
     <ClCompile Include="..\..\src\ballistica\core\support\core_config.cc" />
     <ClInclude Include="..\..\src\ballistica\core\support\core_config.h" />
+    <ClCompile Include="..\..\src\ballistica\remote\python\methods\python_methods_remote.cc" />
+    <ClInclude Include="..\..\src\ballistica\remote\python\methods\python_methods_remote.h" />
+    <ClCompile Include="..\..\src\ballistica\remote\python\remote_python.cc" />
+    <ClInclude Include="..\..\src\ballistica\remote\python\remote_python.h" />
+    <ClCompile Include="..\..\src\ballistica\remote\remote.cc" />
+    <ClInclude Include="..\..\src\ballistica\remote\remote.h" />
+    <ClCompile Include="..\..\src\ballistica\remote\support\remote_app_mode.cc" />
+    <ClInclude Include="..\..\src\ballistica\remote\support\remote_app_mode.h" />
+    <ClCompile Include="..\..\src\ballistica\remote\support\remote_input_delegate.cc" />
+    <ClInclude Include="..\..\src\ballistica\remote\support\remote_input_delegate.h" />
     <ClCompile Include="..\..\src\ballistica\scene_v1\assets\scene_asset.cc" />
     <ClInclude Include="..\..\src\ballistica\scene_v1\assets\scene_asset.h" />
     <ClCompile Include="..\..\src\ballistica\scene_v1\assets\scene_collision_mesh.cc" />

@@ -27,6 +27,12 @@ auto AppMode::CreateInputDeviceDelegate(InputDevice* device)
   return Object::NewDeferred<InputDeviceDelegate>();
 }
 
+auto AppMode::WantsUDPListener() const -> bool { return true; }
+
+auto AppMode::AcceptsRemoteAppConnections() const -> bool { return true; }
+
+auto AppMode::ForcesOnScreenControls() const -> bool { return false; }
+
 void AppMode::RequestMainUI() {}
 
 auto AppMode::HandleJSONPing(const std::string& data_str) -> std::string {
