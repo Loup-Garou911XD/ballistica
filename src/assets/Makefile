@@ -230,6 +230,7 @@ SCRIPT_TARGETS_PY_PUBLIC = \
   $(BUILD_DIR)/ba_data/python/babase/_meta.py \
   $(BUILD_DIR)/ba_data/python/babase/_net.py \
   $(BUILD_DIR)/ba_data/python/babase/_plugin.py \
+  $(BUILD_DIR)/ba_data/python/babase/_remoteassets.py \
   $(BUILD_DIR)/ba_data/python/babase/_simpledialog.py \
   $(BUILD_DIR)/ba_data/python/babase/_stringedit.py \
   $(BUILD_DIR)/ba_data/python/babase/_text.py \
@@ -268,6 +269,18 @@ SCRIPT_TARGETS_PY_PUBLIC = \
   $(BUILD_DIR)/ba_data/python/baplus/_cloud.py \
   $(BUILD_DIR)/ba_data/python/baplus/_consolesession.py \
   $(BUILD_DIR)/ba_data/python/baplus/_hooks.py \
+  $(BUILD_DIR)/ba_data/python/baremote/__init__.py \
+  $(BUILD_DIR)/ba_data/python/baremote/_appmode.py \
+  $(BUILD_DIR)/ba_data/python/baremote/_appsubsystem.py \
+  $(BUILD_DIR)/ba_data/python/baremote/_baseassets.py \
+  $(BUILD_DIR)/ba_data/python/baremote/_client.py \
+  $(BUILD_DIR)/ba_data/python/baremote/_controlwindow.py \
+  $(BUILD_DIR)/ba_data/python/baremote/_hooks.py \
+  $(BUILD_DIR)/ba_data/python/baremote/_nativecontrols.py \
+  $(BUILD_DIR)/ba_data/python/baremote/_protocol.py \
+  $(BUILD_DIR)/ba_data/python/baremote/_scanwindow.py \
+  $(BUILD_DIR)/ba_data/python/baremote/_state.py \
+  $(BUILD_DIR)/ba_data/python/baremote/_uiassets.py \
   $(BUILD_DIR)/ba_data/python/bascenev1/__init__.py \
   $(BUILD_DIR)/ba_data/python/bascenev1/_activity.py \
   $(BUILD_DIR)/ba_data/python/bascenev1/_activitytypes.py \
@@ -3674,8 +3687,22 @@ endif
 .PHONY: _asset_bundle_force
 _asset_bundle_force:
 
+# A gui bundle's contents are not fixed by projectconfig alone. In a
+# plus-less project there is no runtime download path, so
+# packages_for_project() additionally bundles every package the
+# meta-scan finds -- which means the asset-package wrapper modules and
+# their '# ba_meta require asset-package' pins are inputs to this rule
+# too (see batools.assetbundleprofiles). Without them here, repinning a
+# wrapper (``pcommand assetpins update``) leaves this target satisfied
+# and the build keeps baking the previously bundled apverids, which then
+# fail to resolve at boot. Wrapper modules are '_*assets.py' by
+# convention; that is what assetpins writes pins into.
+_ASSET_BUNDLE_WRAPPERS := \
+  $(wildcard $(PROJ_DIR)/src/assets/ba_data/python/*/_*assets.py)
+
 $(PROJ_DIR)/.cache/asset_bundle/gui-minimal/manifest.json: \
-      $(PROJ_DIR)/pconfig/projectconfig.json $(_ASSET_BUNDLE_FORCE)
+      $(PROJ_DIR)/pconfig/projectconfig.json $(_ASSET_BUNDLE_WRAPPERS) \
+      $(_ASSET_BUNDLE_FORCE)
 	@$(PCOMMAND) asset_bundle_build gui-minimal
 
 $(PROJ_DIR)/.cache/asset_bundle/headless-minimal/manifest.json: \

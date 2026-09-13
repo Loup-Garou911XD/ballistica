@@ -862,7 +862,17 @@ void JoystickInput::HandleSDLEvent(const BAEvent* e) {
         break;
       }
       case BA_JOYBUTTONDOWN: {
-        if (e->jbutton.button != hold_position_button_) {
+        // Hold-position and run are held *while* doing other things, so
+        // neither is a ui interaction; anything else falls through to
+        // activating the selected widget below. Leaving run out of that
+        // exclusion made a remote-app press land as two activations: its
+        // on-screen action pad sends run alongside every action button
+        // (TouchInput::HandleTouchDown), so one press arrived as run +
+        // action, each of which activated whatever was selected -- the
+        // second one landing in the window the first had just opened.
+        if (e->jbutton.button != hold_position_button_
+            && e->jbutton.button != run_button1_
+            && e->jbutton.button != run_button2_) {
           pass = true;
           if (e->jbutton.button == start_button_
               || e->jbutton.button == start_button_2_) {
@@ -871,16 +881,27 @@ void JoystickInput::HandleSDLEvent(const BAEvent* e) {
             } else {
               pass = false;
             }
-          } else if (e->jbutton.button == bomb_button_
+          } else if ((e->jbutton.button == bomb_button_ && !IsRemoteApp())
                      || e->jbutton.button == back_button_) {
+            // Bomb doubles as cancel for a real gamepad, where it is a
+            // deliberate reach. On a remote app it is one of four
+            // on-screen action buttons, so the same press kept backing
+            // out of menus by accident; there it stays an action and
+            // activates the selected widget like the others.
             wm = WidgetMessage::Type::kCancel;
           } else {
             // Toggle the party UI if we're pressing the party button.
-            // (currently don't allow remote to do this.. need to make it
-            // customizable)
+            // (should be made customizable)
+            //
+            // Remotes are excluded. Note that both predicates are needed:
+            // IsRemoteControl() covers remote-control/ui-only devices,
+            // while a remote *app* client sets its own is_remote_app_
+            // flag and answers false to that one -- so checking only the
+            // first left a remote-app pickup press opening the party
+            // window instead of activating the selected widget.
             if (g_base->ui->IsPartyIconVisible()
-                && e->jbutton.button == pickup_button_
-                && (!IsRemoteControl())) {
+                && e->jbutton.button == pickup_button_ && !IsRemoteControl()
+                && !IsRemoteApp()) {
               pass = false;
               g_base->ui->ActivatePartyIcon();
               break;

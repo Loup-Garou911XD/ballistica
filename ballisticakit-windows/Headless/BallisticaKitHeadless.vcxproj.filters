@@ -976,6 +976,36 @@
     <ClInclude Include="..\..\src\ballistica\core\support\core_config.h">
       <Filter>ballistica\core\support</Filter>
     </ClInclude>
+    <ClCompile Include="..\..\src\ballistica\remote\python\methods\python_methods_remote.cc">
+      <Filter>ballistica\remote\python\methods</Filter>
+    </ClCompile>
+    <ClInclude Include="..\..\src\ballistica\remote\python\methods\python_methods_remote.h">
+      <Filter>ballistica\remote\python\methods</Filter>
+    </ClInclude>
+    <ClCompile Include="..\..\src\ballistica\remote\python\remote_python.cc">
+      <Filter>ballistica\remote\python</Filter>
+    </ClCompile>
+    <ClInclude Include="..\..\src\ballistica\remote\python\remote_python.h">
+      <Filter>ballistica\remote\python</Filter>
+    </ClInclude>
+    <ClCompile Include="..\..\src\ballistica\remote\remote.cc">
+      <Filter>ballistica\remote</Filter>
+    </ClCompile>
+    <ClInclude Include="..\..\src\ballistica\remote\remote.h">
+      <Filter>ballistica\remote</Filter>
+    </ClInclude>
+    <ClCompile Include="..\..\src\ballistica\remote\support\remote_app_mode.cc">
+      <Filter>ballistica\remote\support</Filter>
+    </ClCompile>
+    <ClInclude Include="..\..\src\ballistica\remote\support\remote_app_mode.h">
+      <Filter>ballistica\remote\support</Filter>
+    </ClInclude>
+    <ClCompile Include="..\..\src\ballistica\remote\support\remote_input_delegate.cc">
+      <Filter>ballistica\remote\support</Filter>
+    </ClCompile>
+    <ClInclude Include="..\..\src\ballistica\remote\support\remote_input_delegate.h">
+      <Filter>ballistica\remote\support</Filter>
+    </ClInclude>
     <ClCompile Include="..\..\src\ballistica\scene_v1\assets\scene_asset.cc">
       <Filter>ballistica\scene_v1\assets</Filter>
     </ClCompile>
@@ -2175,6 +2205,10 @@
     <Filter Include="ballistica\core\platform\windows" />
     <Filter Include="ballistica\core\python" />
     <Filter Include="ballistica\core\support" />
+    <Filter Include="ballistica\remote" />
+    <Filter Include="ballistica\remote\python" />
+    <Filter Include="ballistica\remote\python\methods" />
+    <Filter Include="ballistica\remote\support" />
     <Filter Include="ballistica\scene_v1" />
     <Filter Include="ballistica\scene_v1\assets" />
     <Filter Include="ballistica\scene_v1\connection" />

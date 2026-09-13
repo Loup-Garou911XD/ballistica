@@ -3,6 +3,7 @@
 #ifndef BALLISTICA_BASE_NETWORKING_NETWORK_READER_H_
 #define BALLISTICA_BASE_NETWORKING_NETWORK_READER_H_
 
+#include <atomic>
 #include <condition_variable>
 #include <memory>
 #include <mutex>
@@ -24,6 +25,19 @@ class NetworkReader {
  public:
   NetworkReader();
   void SetPort(int port);
+
+  /// Whether an inbound UDP listener should be open on our port.
+  ///
+  /// Off until an app-mode asks for it (see AppMode::WantsUDPListener),
+  /// so the engine does not squat on the shared game port before it
+  /// knows whether it is going to host anything. An app-mode that is
+  /// purely a network *client* -- the remote-control app -- leaves it
+  /// off: it sends from an ephemeral port and hosts reply to that source
+  /// port, so a listener would accomplish nothing beyond keeping a real
+  /// game on the same machine from binding.
+  ///
+  /// Safe to call from any thread.
+  void SetListenerEnabled(bool enabled);
   void OnAppSuspend();
   void OnAppUnsuspend();
   auto port4() const { return port4_; }
@@ -54,6 +68,7 @@ class NetworkReader {
   int sd4_{-1};
   int sd6_{-1};
   bool paused_{};
+  std::atomic<bool> listener_enabled_{false};
   std::thread* thread_{};
   std::mutex paused_mutex_;
   std::condition_variable paused_cv_;

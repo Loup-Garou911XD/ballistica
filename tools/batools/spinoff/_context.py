@@ -336,6 +336,10 @@ class SpinoffContext:
                     f' on src project.'
                 )
 
+            # Anything of ours living outside the five name-derived dirs
+            # below (asset-package wrapper modules, mainly).
+            paths.update(featureset.spinoff_extra_omit_paths)
+
             # Omit its config file.
             # Make sure this featureset exists on src.
             fsconfigpath = f'pconfig/featuresets/featureset_{fsname}.py'

@@ -55,6 +55,28 @@ class AppMode {
   /// Attempt to bring up a main ui (generally an in-game menu).
   virtual void RequestMainUI();
 
+  /// Whether the engine's on-screen touch controls (the floating movement
+  /// stick plus the action buttons drawn by TouchInput) should be present
+  /// while this mode is active, even where the platform reports no
+  /// touchscreen -- in which case the mouse stands in for a finger. An
+  /// app-mode whose whole job is to *be* a game controller wants them
+  /// everywhere; ordinary gameplay modes leave it to the platform.
+  virtual auto ForcesOnScreenControls() const -> bool;
+
+  /// Whether the engine should keep an inbound UDP listener open on the
+  /// game port while this mode is active. An app-mode that only ever
+  /// *initiates* network conversations -- the remote-control app, which
+  /// sends from an ephemeral port and is replied to there -- returns
+  /// false; binding the shared game port would gain it nothing and would
+  /// keep a real game on the same machine from hosting.
+  virtual auto WantsUDPListener() const -> bool;
+
+  /// Whether the engine's remote-app server should advertise itself and
+  /// accept connections while this mode is active. An app-mode that is
+  /// itself a remote-app *client* returns false, so it neither answers
+  /// its own discovery broadcasts nor offers itself as a game to join.
+  virtual auto AcceptsRemoteAppConnections() const -> bool;
+
   /// Speed/slow stuff (generally debug builds only).
   virtual void ChangeGameSpeed(int offs);
 

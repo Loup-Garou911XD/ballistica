@@ -876,7 +876,7 @@ void TouchInput::Draw(FrameDef* frame_def) {
   }
 }
 
-void TouchInput::ApplyAppConfig() {
+void TouchInput::ResolveMovementControlType_() {
   assert(g_base->InLogicThread());
 
   std::string touch_movement_type = g_base->app_config->Resolve(
@@ -890,6 +890,19 @@ void TouchInput::ApplyAppConfig() {
                          "Invalid touch-movement-type: " + touch_movement_type);
     movement_control_type_ = TouchInput::MovementControlType::kSwipe;
   }
+
+  // An app-mode that asked for these controls gets the last word on
+  // movement style; the config setting is what everyone else uses.
+  if (movement_control_type_override_.has_value()) {
+    movement_control_type_ = *movement_control_type_override_;
+  }
+}
+
+void TouchInput::ApplyAppConfig() {
+  assert(g_base->InLogicThread());
+
+  ResolveMovementControlType_();
+
   std::string touch_action_type =
       g_base->app_config->Resolve(AppConfig::StringID::kTouchActionControlType);
   if (touch_action_type == "swipe") {

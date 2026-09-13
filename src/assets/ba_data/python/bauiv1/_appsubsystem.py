@@ -738,7 +738,6 @@ class UIV1AppSubsystem(babase.AppSubsystem):
     def _upkeep(self) -> None:
         """Run UI cleanup checks, etc. should be called periodically."""
 
-        assert babase.app.classic is not None
         remainingchecks = []
         now = babase.apptime()
         for check in self._cleanupchecks:

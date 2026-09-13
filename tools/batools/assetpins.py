@@ -812,7 +812,7 @@ def _discover_pins(projroot: Path) -> list[Pin]:
             if is_unresolved_dev(pc_value)
             else classify_apverid(pc_value)
         )
-        account, package = _account_and_package_or_bare_dev(pc_value)
+        account, package = account_and_package_or_bare_dev(pc_value)
         pins.append(
             Pin(
                 kind='projectconfig',
@@ -831,27 +831,48 @@ def _discover_pins(projroot: Path) -> list[Pin]:
     return pins
 
 
-def _discover_wrapper_pins(projroot: Path) -> list[Pin]:
-    """Walk Python source via bacommon.metascan to find wrappers."""
-    from pathlib import Path
+def discover_wrapper_apverids(projroot: Path) -> set[str]:
+    """Every asset-package apverid the project's scripts ask for.
+
+    The same set construct-mode resolves at boot, since both come from
+    the meta-scan's ``require asset-package`` lines. Goes straight to the
+    scan results rather than through :func:`_discover_wrapper_pins`,
+    which re-reads every wrapper module off disk to classify it -- work
+    that would all be discarded here.
+    """
+    return set(_scan_python_sources(projroot))
+
+
+def _scan_python_sources(projroot: Path) -> dict[str, list[str]]:
+    """Asset-package apverid -> wrapper modules, from the python tree.
+
+    Empty when the tree isn't there (a partial checkout), which every
+    caller wants to treat as 'nothing found' anyway.
+    """
     from bacommon.metascan import DirectoryScan
 
     python_root = projroot / 'src/assets/ba_data/python'
     if not python_root.is_dir():
-        return []
+        return {}
 
     scanner = DirectoryScan(paths=[str(python_root)])
     scanner.run()
+    return scanner.results.asset_packages
+
+
+def _discover_wrapper_pins(projroot: Path) -> list[Pin]:
+    """Walk Python source via bacommon.metascan to find wrappers."""
+    from pathlib import Path
 
     pins: list[Pin] = []
-    for apverid, modulenames in scanner.results.asset_packages.items():
+    for apverid, modulenames in _scan_python_sources(projroot).items():
         for modulename in modulenames:
             file_path = Path(
                 'src/assets/ba_data/python',
                 *modulename.split('.'),
             ).with_suffix('.py')
             wrapper_type = _detect_wrapper_type(projroot / file_path)
-            account, package = _account_and_package_or_bare_dev(apverid)
+            account, package = account_and_package_or_bare_dev(apverid)
             pins.append(
                 Pin(
                     kind='wrapper',
@@ -902,7 +923,7 @@ def _detect_wrapper_type(path: Path) -> str:
     return match.group(1)
 
 
-def _account_and_package_or_bare_dev(apverid: str) -> tuple[str, str]:
+def account_and_package_or_bare_dev(apverid: str) -> tuple[str, str]:
     """Return ``(account, package)`` from an apverid.
 
     Tolerates bare-dev apverids (``<account>.<name>.dev``).

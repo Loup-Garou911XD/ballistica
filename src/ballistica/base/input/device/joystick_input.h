@@ -94,6 +94,14 @@ class JoystickInput : public InputDevice {
   auto IsMFiController() -> bool override { return is_mfi_controller_; }
 
   void set_is_remote_app(bool val) { is_remote_app_ = val; }
+
+  /// Tell this device which button its run press arrives on.
+  ///
+  /// The remote app has no analog triggers, so it synthesizes run as a
+  /// plain button press (see RemoteAppServer::HandleRemoteEvent). Naming
+  /// that button here is what keeps the ui path from treating it as a
+  /// generic action button and activating the selected widget with it.
+  void set_run_button(int button) { run_button1_ = button; }
   void set_is_mfi_controller(bool val) { is_mfi_controller_ = val; }
 
   void SetStandardExtendedButtons();

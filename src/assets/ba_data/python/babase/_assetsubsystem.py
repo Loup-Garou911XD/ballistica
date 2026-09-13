@@ -185,9 +185,11 @@ _BUCKETS = (
     'meshes',
 )
 
-#: Per-bucket fallback flavor coord (or None) — used ONLY for the
-#: builtin/projectconfig bootstrap package, whose fallbacks are
-#: guaranteed bundled. Every other package is exact-or-fail. Single
+#: Per-bucket fallback flavor coord (or None) — used for any package
+#: whose bundled copy of that flavor is actually complete on disk
+#: (the builtin/bootstrap one always, and in a plus-less build every
+#: package the meta-scan caused to be bundled). A package with nothing
+#: bundled is still exact-or-fail. Single
 #: fallback per bucket for now; :meth:`AssetSubsystem._fallback_coord`
 #: wraps this so a fallback *chain* is a non-breaking later change.
 #: Texture tiers cheapest-first. The server may hand back a *lower* tier
@@ -1101,24 +1103,12 @@ class AssetSubsystem(AppSubsystem):
 
     @staticmethod
     def _fallback_coord(bucket: str) -> str | None:
-        """The fallback flavor coord for a bucket (builtin package only)."""
-        return _BUCKET_FALLBACKS.get(bucket)
+        """The fallback flavor coord for a bucket.
 
-    @staticmethod
-    def _is_builtin(apverid: str) -> bool:
-        """Is this the builtin/bootstrap package (fallback-eligible)?
-
-        Fallback applies only to bundled packages — their fallback flavors
-        are guaranteed present on disk. Every other (download-only) package
-        is exact-or-fail.
+        Whether it can actually be used is decided by the caller, which
+        checks that the coord is complete on disk (see _finalize_one).
         """
-        # pylint: disable=cyclic-import
-        # Builtin-only set on purpose: a runtime-resolved non-builtin
-        # package is also "loaded" (its strings merge) but is NOT
-        # fallback-eligible -- it has no bundled flavor on disk.
-        from babase._asset_packages import builtin_asset_package_apverids
-
-        return apverid in builtin_asset_package_apverids()
+        return _BUCKET_FALLBACKS.get(bucket)
 
     # ---------------------------------------------------------------------
     # Public API.
@@ -1139,9 +1129,9 @@ class AssetSubsystem(AppSubsystem):
         (from the active dimensions) if that flavor's blobs are present
         locally (writable cache ∪ bundle); else, when ``allow_downloads``
         is set, the desired flavor is fetched from the connected node (one
-        Tier-1 resolve + parallel Tier-2 blob fetches); else, for the
-        builtin/bootstrap package only, the bucket's bundled fallback
-        flavor is used; otherwise the resolve fails. Only if *every*
+        Tier-1 resolve + parallel Tier-2 blob fetches); else the bucket's
+        bundled fallback flavor is used if we shipped a complete copy of
+        it; otherwise the resolve fails. Only if *every*
         requested apverid fully succeeds are they committed into the C++
         registry in a single atomic swap and the cache manifest persisted;
         any failure raises :class:`AssetResolveError` and leaves the native
@@ -1796,13 +1786,9 @@ class AssetSubsystem(AppSubsystem):
             local, missing = self._scan_local(apverid, desired)
             if missing:
                 # Not fully local; let the online path handle this set
-                # (download desired flavors / builtin fallback / fail).
+                # (download desired flavors / bundled fallback / fail).
                 return None
-            results.append(
-                self._finalize_one(
-                    apverid, desired, local, self._is_builtin(apverid)
-                )
-            )
+            results.append(self._finalize_one(apverid, desired, local))
         return self._accumulate_results(apverids, results)
 
     async def _resolve_online(
@@ -1826,8 +1812,8 @@ class AssetSubsystem(AppSubsystem):
           one for all downloads, instead of a bar that restarts per
           package and never conveys overall progress.
 
-        Failure semantics are unchanged: the builtin/bootstrap package
-        falls back to its bundled flavors, everything else is
+        Failure semantics are unchanged: a package falls back to its
+        bundled flavors where it has complete ones, anything else is
         exact-or-fail, and the commit stays all-or-nothing.
         """
         desired = self._desired_coords(language)
@@ -1867,7 +1853,6 @@ class AssetSubsystem(AppSubsystem):
                     apverid,
                     desired,
                     {**locals_by_id[apverid], **downloaded.get(apverid, {})},
-                    self._is_builtin(apverid),
                 )
                 for apverid in apverids
             ]
@@ -1918,7 +1903,6 @@ class AssetSubsystem(AppSubsystem):
         pool. Returns the coords obtained from the server, or an empty map
         when the builtin package fell back to its bundled flavors.
         """
-        is_builtin = self._is_builtin(apverid)
         try:
             pkg = await self._tier1_manifests_with_retries(apverid, language)
         except AssetResolveAbortedError:
@@ -1927,13 +1911,15 @@ class AssetSubsystem(AppSubsystem):
             self._mark_build_done(apverid, acquired=True)
             raise
         except AssetResolveError as exc:
-            # The builtin/bootstrap package must still come up offline;
-            # other packages are exact-or-fail. Log the underlying
-            # reason either way (it's otherwise swallowed).
-            logger.warning('%s: online resolve failed (%s).', apverid, exc)
+            # Hand back no server coords and let _finalize_one pick from
+            # what is on disk: a bundled flavor if we shipped one, else it
+            # raises. Deciding here instead would have to guess at what
+            # the package has locally, which is the thing _finalize_one
+            # already knows. Logged at info, not warning -- an offline
+            # build (no plus) takes this path on every resolve by design,
+            # and a genuine dead end still surfaces as the raise below it.
+            logger.info('%s: online resolve failed (%s).', apverid, exc)
             self._mark_build_done(apverid, acquired=True)
-            if not is_builtin:
-                raise
             strip_exception_tracebacks(exc)
             return {}
 
@@ -2003,9 +1989,7 @@ class AssetSubsystem(AppSubsystem):
         :meth:`resolve_local`; ``available`` is just the local coords.
         """
         local, _missing = self._scan_local(apverid, desired)
-        return self._finalize_one(
-            apverid, desired, local, self._is_builtin(apverid)
-        )
+        return self._finalize_one(apverid, desired, local)
 
     def _scan_local(
         self, apverid: str, desired: dict[str, str]
@@ -2028,15 +2012,25 @@ class AssetSubsystem(AppSubsystem):
         apverid: str,
         desired: dict[str, str],
         available: dict[str, str],
-        is_builtin: bool,
     ) -> _OneResult:
         """Per-bucket flavor selection + registry-entry read. Off-thread.
 
         For each bucket: the desired flavor if its blobs are all present
-        (``available`` = local ∪ just-downloaded), else — builtin package
-        only — the bundled fallback flavor, else raise. Reads the chosen
-        flavor's flavor-manifest to build the ``{logical_path: data-hash}``
-        entries.
+        (``available`` = local ∪ just-downloaded), else the bundled
+        fallback flavor if *that* is complete on disk, else raise. Reads
+        the chosen flavor's flavor-manifest to build the
+        ``{logical_path: data-hash}`` entries.
+
+        Fallback used to be limited to the builtin package, on the
+        reasoning that only it was guaranteed to have bundled flavors on
+        disk and everything else was download-only. That stopped being
+        true once a plus-less build began bundling whatever the meta-scan
+        asks for (see batools.assetbundleprofiles.packages_for_project):
+        such a build has bundled packages that aren't the builtin one,
+        and it can never download, so exact-or-fail left them retrying a
+        fetch that cannot succeed. The completeness check below is what
+        actually enforces "we really have this locally", so it -- not the
+        package's identity -- is the right gate.
         """
         coords: dict[str, str] = {}
         entries: dict[str, dict[str, dict[str, str]]] = {}
@@ -2062,20 +2056,17 @@ class AssetSubsystem(AppSubsystem):
                 if chosen != desired_coord:
                     fell_back[desired_coord] = chosen
                 continue
-            if is_builtin:
-                fallback = self._fallback_coord(bucket)
-                fb_hash = (
-                    available.get(fallback) if fallback is not None else None
-                )
-                if (
-                    fallback is not None
-                    and fb_hash is not None
-                    and self._coord_complete(fb_hash)
-                ):
-                    coords[fallback] = fb_hash
-                    entries[fallback] = self._read_entries(fb_hash)
-                    fell_back[desired_coord] = fallback
-                    continue
+            fallback = self._fallback_coord(bucket)
+            fb_hash = available.get(fallback) if fallback is not None else None
+            if (
+                fallback is not None
+                and fb_hash is not None
+                and self._coord_complete(fb_hash)
+            ):
+                coords[fallback] = fb_hash
+                entries[fallback] = self._read_entries(fb_hash)
+                fell_back[desired_coord] = fallback
+                continue
             raise AssetResolveError(
                 f'{apverid}: bucket {bucket!r}: neither the desired flavor'
                 f' ({desired_coord}) nor a usable fallback is available.'

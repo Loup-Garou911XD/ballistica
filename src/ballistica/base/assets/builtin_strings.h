@@ -10,7 +10,7 @@
 // ``pconfig/projectconfig.json`` changes) from that pin's asset
 // listing. Rerun ``make assetpins-latest`` to regenerate.
 //
-// Generated from: "a-0.babuiltinassets.260831h"
+// Generated from: "a-0.babuiltinassets.260910"
 
 #include <memory>
 
@@ -201,6 +201,18 @@ class BuiltinStrings {
     /// English: "Error playing music: {music}"
     static auto MusicPlayError(LangStr::Sub music)
         -> std::shared_ptr<const LangStr>;
+  };
+
+  class Device {
+   public:
+    /// Screen-message shown once per run on Android when the game deliberately
+    /// drops its frame rate to 60hz because the OS reports severe thermal
+    /// throttling; only shown on devices whose display would otherwise run
+    /// faster than 60hz.
+    ///
+    /// English: "Device is running hot; frame rate reduced to 60 until it
+    /// cools."
+    static auto ThermalFrameRateCap() -> std::shared_ptr<const LangStr>;
   };
 
   class Input {
@@ -398,6 +410,14 @@ class BuiltinStrings {
     /// settings."
     static auto DeviceTimeIncorrect(LangStr::Sub hours)
         -> std::shared_ptr<const LangStr>;
+
+    /// Yellow warning screen-message shown right after successfully joining a
+    /// multiplayer game hosted by an older version of the game; warns that
+    /// newer character skins may render as older ones there.
+    ///
+    /// English: "This server is running an older game version - some new
+    /// characters may show up as older ones."
+    static auto HostOlderVersionCharacters() -> std::shared_ptr<const LangStr>;
 
     /// Screen-message when connecting fails because the host runs a NEWER game
     /// version (so updating locally will fix it).

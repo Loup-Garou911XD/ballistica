@@ -16,3 +16,9 @@ fset.has_python_binary_module = False
 
 # Stuff we need.
 fset.requirements = {'core', 'base', 'ui_v1', 'classic'}
+
+# Same story as classic's wrapper: this one lives in bauiv1's package
+# but is only ever read by our bauiv1lib.docuitest* modules.
+fset.spinoff_extra_omit_paths = {
+    'src/assets/ba_data/python/bauiv1/_docuiv2testassets.py',
+}

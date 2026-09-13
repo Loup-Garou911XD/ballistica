@@ -690,7 +690,7 @@ def asset_bundle_build() -> None:
     from efrotools.project import getprojectconfig
 
     from batools.assetpins import is_unresolved_dev
-    from batools.assetbundleprofiles import get_profile
+    from batools.assetbundleprofiles import get_profile, packages_for_project
 
     args = pcommand.get_args()
     if len(args) != 1:
@@ -699,16 +699,12 @@ def asset_bundle_build() -> None:
 
     pconfig = getprojectconfig(pcommand.PROJROOT)
 
-    # Resolve each package's apverid from its projectconfig field.
+    # Resolve each package's apverid from its projectconfig field (or
+    # take the one it carries directly, for packages discovered from the
+    # source tree in a plus-less project).
     resolved: list[tuple[str, BundlePackage]] = []
-    for pkg in profile.packages:
-        apverid = pconfig.get(pkg.projectconfig_key)
-        if not isinstance(apverid, str) or not apverid:
-            raise CleanError(
-                f"Need a string '{pkg.projectconfig_key}' value in"
-                f' projectconfig; got'
-                f' {type(apverid).__name__} value {apverid!r}.'
-            )
+    for pkg in packages_for_project(profile, str(pcommand.PROJROOT)):
+        apverid = pkg.resolve_apverid(pconfig)
         # Bare ``<owner>.<name>.dev`` is a request for the latest dev
         # snapshot; it must be resolved before any build consumes it.
         if is_unresolved_dev(apverid):
@@ -750,6 +746,12 @@ def asset_bundle_build() -> None:
         if isinstance(existing, dict):
             apvs = existing.get('asset_package_versions')
             if isinstance(apvs, dict) and sorted(apvs) == expected_apverids:
+                # Mark the manifest newer than the inputs that triggered
+                # us. Make keys this target on the wrapper modules whose
+                # pins we just found unchanged, so returning without
+                # touching it would leave the target perpetually out of
+                # date and re-run this command on every single build.
+                os.utime(bundle_path, None)
                 return
 
     print(

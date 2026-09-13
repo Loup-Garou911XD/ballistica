@@ -15,9 +15,48 @@ from bauiv1._keyboard import Keyboard
 from bauiv1._window import Window
 
 if TYPE_CHECKING:
+    from typing import Any
+
     from babase import StringEditAdapter
 
     import bauiv1 as bui
+
+
+class _FallbackKeyboardStrings:
+    """Plain-English stand-ins for classic's keyboard strings."""
+
+    space_key = 'space'
+    change_instructions = 'press ctrl-k to change keyboard'
+    no_others_available = 'No other keyboards available.'
+
+    @staticmethod
+    def switched(name: str) -> str:
+        """Message shown after cycling to another keyboard."""
+        return f'Switched to keyboard {name}.'
+
+
+def _fallback_kbstrings() -> Any:
+    return _FallbackKeyboardStrings
+
+
+# The keyboard's ui strings live in classic's asset-package. A build
+# without classic falls back to literals rather than pulling that whole
+# package in (it is the entire game's art) for four strings.
+_kbstrings = _fallback_kbstrings
+# __SPINOFF_REQUIRE_CLASSIC_BEGIN__
+
+
+def _classic_kbstrings() -> Any:
+    # Safe up-call: bauiv1 is fully imported by the time this runs; the
+    # cycle pylint sees is structural only.
+    # pylint: disable-next=cyclic-import
+    from bauiv1 import _classicassets
+
+    return _classicassets.strings.keyboard
+
+
+_kbstrings = _classic_kbstrings
+# __SPINOFF_REQUIRE_CLASSIC_END__
 
 
 class OnScreenKeyboardWindow(Window):
@@ -32,7 +71,6 @@ class OnScreenKeyboardWindow(Window):
         self._adapter = adapter
         self._width = 700
         self._height = 400
-        assert babase.app.classic is not None
         uiscale = babase.app.ui_v1.uiscale
         top_extra = 20 if uiscale is babase.UIScale.SMALL else 0
 
@@ -133,7 +171,7 @@ class OnScreenKeyboardWindow(Window):
         # Safe up-call: bauiv1 is fully imported by the time
         # this runs; the cycle pylint sees is structural only.
         # pylint: disable-next=cyclic-import
-        from bauiv1 import _commonassets, _builtinassets, _classicassets
+        from bauiv1 import _commonassets, _builtinassets
 
         self._keyboard = self._get_keyboard()
         # We want to get just chars without column data, etc.
@@ -252,7 +290,7 @@ class OnScreenKeyboardWindow(Window):
                         autoselect=True,
                         textcolor=key_textcolor,
                         color=key_color_dark,
-                        label=_classicassets.strings.keyboard.space_key,
+                        label=_kbstrings().space_key,
                         on_activate_call=babase.CallStrict(
                             self._type_char, ' '
                         ),
@@ -273,9 +311,7 @@ class OnScreenKeyboardWindow(Window):
                             h_align='center',
                             position=(210, v - 70),
                             size=(key_width * 6.1, key_height + 15),
-                            text=(
-                                _classicassets.strings.keyboard
-                            ).change_instructions,
+                            text=_kbstrings().change_instructions,
                             scale=0.75,
                         )
                 btn2 = self._space_button
@@ -397,7 +433,7 @@ class OnScreenKeyboardWindow(Window):
         # Safe up-call: bauiv1 is fully imported by the time
         # this runs; the cycle pylint sees is structural only.
         # pylint: disable-next=cyclic-import
-        from bauiv1 import _commonassets, _builtinassets, _classicassets
+        from bauiv1 import _commonassets, _builtinassets
 
         assert babase.app.meta.scanresults is not None
         kbexports = babase.app.meta.scanresults.exports_by_name(
@@ -409,14 +445,12 @@ class OnScreenKeyboardWindow(Window):
         if len(kbexports) < 2:
             _builtinassets.audio.error.get().play()
             babase.screenmessage(
-                _classicassets.strings.keyboard.no_others_available,
+                _kbstrings().no_others_available,
                 color=(1, 0, 0),
             )
         else:
             babase.screenmessage(
-                _classicassets.strings.keyboard.switched(
-                    name=self._keyboard.name
-                ),
+                _kbstrings().switched(name=self._keyboard.name),
                 color=(0, 1, 0),
             )
 

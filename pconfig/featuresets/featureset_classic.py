@@ -33,3 +33,11 @@ fset.python_app_subsystem_dependencies = {'plus'}
 
 # We want things to work without us.
 fset.allow_as_soft_requirement = True
+
+# Our asset-package wrapper module lives inside bauiv1's package (that
+# is where it is imported from), so spinoff's name-based omission won't
+# catch it. It has to go with us or a classic-less build demands the
+# entire game's art at boot.
+fset.spinoff_extra_omit_paths = {
+    'src/assets/ba_data/python/bauiv1/_classicassets.py',
+}

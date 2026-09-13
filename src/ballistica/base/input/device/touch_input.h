@@ -3,6 +3,7 @@
 #ifndef BALLISTICA_BASE_INPUT_DEVICE_TOUCH_INPUT_H_
 #define BALLISTICA_BASE_INPUT_DEVICE_TOUCH_INPUT_H_
 
+#include <optional>
 #include <string>
 
 #include "ballistica/base/input/device/input_device.h"
@@ -28,13 +29,30 @@ class TouchInput : public InputDevice {
   enum class MovementControlType { kJoystick, kSwipe };
   enum class ActionControlType { kButtons, kSwipe };
 
+  /// Pin the movement style, ignoring the app-config setting. For
+  /// app-modes that bring these controls up themselves and have a
+  /// specific style in mind (see AppMode::ForcesOnScreenControls); pass
+  /// nullopt to go back to honoring the config.
+  void set_movement_control_type_override(
+      std::optional<MovementControlType> val) {
+    movement_control_type_override_ = val;
+
+    // Re-resolve just the movement style rather than re-running the
+    // whole config apply, which reads a further seven config values
+    // through Python; this is what restores the config's own setting
+    // when the override is cleared.
+    ResolveMovementControlType_();
+  }
+
  protected:
   auto DoGetDeviceName() -> std::string override;
 
  private:
+  void ResolveMovementControlType_();
   void UpdateDPad();
   void UpdateButtons(bool new_touch = false);
   MovementControlType movement_control_type_{MovementControlType::kSwipe};
+  std::optional<MovementControlType> movement_control_type_override_;
   ActionControlType action_control_type_{ActionControlType::kButtons};
   float controls_scale_move_{1.0f};
   float controls_scale_actions_{1.0f};

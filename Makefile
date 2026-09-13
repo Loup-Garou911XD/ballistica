@@ -847,6 +847,10 @@ spinoff-test-scene_v1: env
 spinoff-test-scene_v1_lib: env
 	$(PCOMMAND) spinoff_test scene_v1_lib $(SPINOFF_TEST_EXTRA_ARGS)
 
+# Build and check remote feature set alone (the BombSquad Remote app).
+spinoff-test-remote: env
+	$(PCOMMAND) spinoff_test remote $(SPINOFF_TEST_EXTRA_ARGS)
+
 # Blow away all spinoff-test builds.
 spinoff-test-clean: env
 	rm -rf build/spinofftest
@@ -874,9 +878,11 @@ spinoff-upgrade: env
 	@$(PCOMMANDBATCH) echo GRN Spinoff upgrade successful!
 
 # Tell make which of these targets don't represent files.
-.PHONY: spinoff-test-core spinoff-test-base spinoff-test-plus       \
-        spinoff-test-template_fs spinoff-test-clean spinoff-update  \
-        spinoff-upgrade
+.PHONY: spinoff-test spinoff-test-core spinoff-test-base              \
+        spinoff-test-plus spinoff-test-classic spinoff-test-template_fs  \
+        spinoff-test-ui_v1 spinoff-test-ui_v1_lib spinoff-test-scene_v1  \
+        spinoff-test-scene_v1_lib spinoff-test-remote                    \
+        spinoff-test-clean spinoff-update spinoff-upgrade
 
 
 ################################################################################
