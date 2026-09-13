@@ -5,8 +5,6 @@
 #include "ballistica/base/base.h"
 #include "ballistica/base/graphics/graphics.h"
 #include "ballistica/base/input/device/input_device.h"
-#include "ballistica/base/input/device/touch_input.h"
-#include "ballistica/base/input/input.h"
 #include "ballistica/base/ui/ui.h"
 #include "ballistica/core/core.h"
 #include "ballistica/remote/python/remote_python.h"
@@ -44,14 +42,6 @@ void RemoteAppMode::OnActivate() {
     // Nothing has faded us in yet at this point; do it ourselves or we
     // sit at a black screen forever.
     g_base->graphics->FadeScreen(true, 250, nullptr);
-
-    // Our action-button art is plain quads from the builtin package
-    // rather than classic's pre-positioned meshes (see
-    // baremote._baseassets), so the cluster has to be laid out at draw
-    // time or all four buttons land on the same spot.
-    if (auto* touch = g_base->input->touch_input()) {
-      touch->set_action_button_meshes_prepositioned(false);
-    }
   }
 }
 
@@ -61,13 +51,6 @@ void RemoteAppMode::OnDeactivate() {
   // Any input arriving between here and our next activation has nowhere
   // to go.
   RemoteInputDelegate::set_attached(false);
-
-  // Put the button layout back the way we found it; the meshes it
-  // describes go away with our BaseAssetSet, so leaving it off would
-  // stack the next mode's pre-positioned art on one spot.
-  if (auto* touch = g_base->input->touch_input()) {
-    touch->set_action_button_meshes_prepositioned(true);
-  }
 
   if (uiv1_ != nullptr) {
     g_base->ui->SetUIDelegate(nullptr);

@@ -1,7 +1,7 @@
 # Released under the MIT License. See LICENSE for details.
 #
 # Auto-generated; do not edit by hand.
-"""Asset-package wrapper for ``a-18011215.baremoteassets.260912`` (babase).
+"""Asset-package wrapper for ``a-18011215.baremoteassets.260913c`` (babase).
 
 Art for the remote-control app's on-screen controls.
 
@@ -12,7 +12,7 @@ remote has no other reason to carry -- so just these few live here.
 """
 
 # ba_meta require api 9
-# ba_meta require asset-package a-18011215.baremoteassets.260912
+# ba_meta require asset-package a-18011215.baremoteassets.260913c
 
 # pylint: disable=useless-suppression
 # pylint: disable=too-many-lines
@@ -22,7 +22,7 @@ from typing import TYPE_CHECKING
 
 from babase._assetref import AssetGroup
 
-_ASSET_PACKAGE = 'a-18011215.baremoteassets.260912'
+_ASSET_PACKAGE = 'a-18011215.baremoteassets.260913c'
 
 if TYPE_CHECKING:
     from babase._assetref import MeshHandle, TextureHandle

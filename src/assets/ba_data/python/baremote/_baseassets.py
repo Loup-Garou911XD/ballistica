@@ -33,10 +33,10 @@ def make_base_asset_set() -> babase.BaseAssetSet:
     msh = _remoteassets.meshes
     assets = babase.BaseAssetSet()
 
-    # One texture is bound for all four buttons; each mesh is a quad
-    # uv-mapped to its own quadrant of the sheet. The quads are centered
-    # rather than pre-positioned, so TouchInput lays the cluster out (see
-    # set_action_button_meshes_prepositioned).
+    # One texture is bound for all four buttons; each mesh is a wedge
+    # uv-mapped to its own sector of the sheet, and modelled already
+    # offset to its spot in the cluster -- same shape as classic's, so
+    # TouchInput draws them as-is and adds no spread of its own.
     assets.action_buttons = tex.action_buttons
     assets.action_button_bottom = msh.action_button_bottom
     assets.action_button_left = msh.action_button_left

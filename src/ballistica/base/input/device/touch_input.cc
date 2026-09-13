@@ -601,15 +601,9 @@ void TouchInput::Draw(FrameDef* frame_def) {
     }
 
     float b_width{50.0f * s};
+    float half_b_width{0.0f};
 
-    // Classic's action-button meshes are modelled at their own spots in
-    // the cluster, so nothing is spread here for them. Plain quads carry
-    // no such offset and would all stack up at the cluster's center, so
-    // those get the layout applied here instead.
-    float half_b_width{action_button_meshes_prepositioned_ ? 0.0f
-                                                           : b_width * 0.5f};
-    float button_spread_s{action_button_meshes_prepositioned_ ? 0.0f
-                                                              : 16.0f * s};
+    float button_spread_s{0.0f * s};
 
     if (action_control_type_ == ActionControlType::kSwipe) {
       button_spread_s *= 2.0f;
