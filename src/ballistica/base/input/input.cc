@@ -558,24 +558,22 @@ void Input::SetOnScreenControlsForced(bool val) {
   // designed to come and go, and TouchInput draws nothing and emits
   // nothing while no delegate is attached to a player, so an idle one
   // costs nothing.
-  if (val && touch_input_ == nullptr) {
+  if (touch_input_ == nullptr) {
+    if (!val) {
+      return;  // Nothing here to configure and nothing wants one.
+    }
     touch_input_ = Object::NewDeferred<TouchInput>();
     PushAddInputDeviceCall(touch_input_, false);
   }
 
-  if (touch_input_ != nullptr) {
-    // A pointer is a single finger, so pick the style that works with
-    // one: the floating stick, held and dragged, rather than swipe.
-    // Cleared again when the mode no longer wants these, so a later mode
-    // gets the config's own setting back -- every other app-mode hook
-    // here is fully recomputed on each switch and this one should be
-    // too.
-    std::optional<TouchInput::MovementControlType> movement_style;
-    if (val) {
-      movement_style = TouchInput::MovementControlType::kJoystick;
-    }
-    touch_input_->set_movement_control_type_override(movement_style);
-  }
+  // A pointer is a single finger, so pick the style that works with one:
+  // the floating stick, held and dragged, rather than swipe. Cleared
+  // again when the mode no longer wants these, so a later mode gets the
+  // config's own setting back -- every other app-mode hook here is fully
+  // recomputed on each switch and this one should be too.
+  touch_input_->set_movement_control_type_override(
+      val ? std::optional{TouchInput::MovementControlType::kJoystick}
+          : std::nullopt);
 }
 
 auto Input::MouseDrivesTouchInput_() const -> bool {
@@ -1527,11 +1525,12 @@ void Input::HandleMouseUp_(int button, const Vector2f& position) {
       g_base->graphics->PixelToVirtualX(
           position.x * g_base->graphics->screen_pixel_width()),
       g_base->graphics->PixelToVirtualY(
-          position.y * g_base->graphics->screen_pixel_height()));
+          position.y * g_base->graphics->screen_pixel_height()),
+      false);
 }
 
 void Input::HandleMouseUpAtVirtual_(int button, float virtual_x,
-                                    float virtual_y) {
+                                    float virtual_y, bool cancel) {
   assert(g_base->InLogicThread());
 
   cursor_pos_x_ = virtual_x;
@@ -1541,6 +1540,8 @@ void Input::HandleMouseUpAtVirtual_(int button, float virtual_x,
   // (see MouseDrivesTouchInput_). They usually handle their own events,
   // but going through here lets them play nice with stuff under them by
   // blocking touches, etc.
+  //
+  // FIXME - a cancel is passed along as a touch-up.
   if (MouseDrivesTouchInput_()) {
     touch_input_->HandleTouchUp(reinterpret_cast<void*>(1), cursor_pos_x_,
                                 cursor_pos_y_);
@@ -1548,7 +1549,11 @@ void Input::HandleMouseUpAtVirtual_(int button, float virtual_x,
 
   ApplyMouseUpCancelToCamera(button);
 
-  g_base->ui->HandleMouseUp(button, cursor_pos_x_, cursor_pos_y_);
+  if (cancel) {
+    g_base->ui->HandleMouseCancel(button, cursor_pos_x_, cursor_pos_y_);
+  } else {
+    g_base->ui->HandleMouseUp(button, cursor_pos_x_, cursor_pos_y_);
+  }
 }
 
 void Input::PushUINavEvent(WidgetMessage::Type type) {
@@ -1579,7 +1584,7 @@ void Input::PushMouseButtonAtVirtualCoords(int button, float virtual_x,
         if (pressed) {
           HandleMouseDownAtVirtual_(button, virtual_x, virtual_y);
         } else {
-          HandleMouseUpAtVirtual_(button, virtual_x, virtual_y);
+          HandleMouseUpAtVirtual_(button, virtual_x, virtual_y, false);
         }
       });
 }
@@ -1594,7 +1599,7 @@ void Input::PushMouseClickAtVirtualCoords(int button, float virtual_x,
     // modals / hit-testing / focus chains behave normally and anything
     // else in the click path (the on-screen touch controls) sees it.
     HandleMouseDownAtVirtual_(button, virtual_x, virtual_y);
-    HandleMouseUpAtVirtual_(button, virtual_x, virtual_y);
+    HandleMouseUpAtVirtual_(button, virtual_x, virtual_y, false);
   });
 }
 
@@ -1617,7 +1622,7 @@ void Input::PushMouseDragAtVirtualCoords(int button, float virtual_x,
           virtual_x + (virtual_end_x - virtual_x) * amt,
           virtual_y + (virtual_end_y - virtual_y) * amt);
     }
-    HandleMouseUpAtVirtual_(button, cursor_pos_x_, cursor_pos_y_);
+    HandleMouseUpAtVirtual_(button, cursor_pos_x_, cursor_pos_y_, false);
   });
 }
 
@@ -1637,25 +1642,13 @@ void Input::HandleMouseCancel_(int button, const Vector2f& position) {
   mark_input_active();
 
   // Convert normalized view coords to our virtual ones.
-  cursor_pos_x_ = g_base->graphics->PixelToVirtualX(
-      position.x * g_base->graphics->screen_pixel_width());
-  cursor_pos_y_ = g_base->graphics->PixelToVirtualY(
-      position.y * g_base->graphics->screen_pixel_height());
-
-  // Feed the on-screen touch controls from the mouse where that applies
-  // (see MouseDrivesTouchInput_). They usually handle their own events,
-  // but going through here lets them play nice with stuff under them by
-  // blocking touches, etc.
-  //
-  // FIXME - passing as touch-up.
-  if (MouseDrivesTouchInput_()) {
-    touch_input_->HandleTouchUp(reinterpret_cast<void*>(1), cursor_pos_x_,
-                                cursor_pos_y_);
-  }
-
-  ApplyMouseUpCancelToCamera(button);
-
-  g_base->ui->HandleMouseCancel(button, cursor_pos_x_, cursor_pos_y_);
+  HandleMouseUpAtVirtual_(
+      button,
+      g_base->graphics->PixelToVirtualX(
+          position.x * g_base->graphics->screen_pixel_width()),
+      g_base->graphics->PixelToVirtualY(
+          position.y * g_base->graphics->screen_pixel_height()),
+      true);
 }
 
 void Input::PushTouchEvent(const TouchEvent& e) {

@@ -280,7 +280,8 @@ class Input {
   auto GetFuzzyInputDevice_() -> InputDevice*;
   auto MouseDrivesTouchInput_() const -> bool;
   void HandleMouseDownAtVirtual_(int button, float virtual_x, float virtual_y);
-  void HandleMouseUpAtVirtual_(int button, float virtual_x, float virtual_y);
+  void HandleMouseUpAtVirtual_(int button, float virtual_x, float virtual_y,
+                               bool cancel);
   void HandleMouseMotionAtVirtual_(float virtual_x, float virtual_y);
 
   std::list<std::string> input_lock_temp_labels_;

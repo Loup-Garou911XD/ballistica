@@ -37,16 +37,18 @@ class TouchInput : public InputDevice {
       std::optional<MovementControlType> val) {
     movement_control_type_override_ = val;
 
-    // Re-resolve right now rather than waiting for the next config
-    // apply; that is also what restores the config's own setting when
-    // the override is cleared.
-    ApplyAppConfig();
+    // Re-resolve just the movement style rather than re-running the
+    // whole config apply (which also re-reads several values through
+    // Python); this is what restores the config's own setting when the
+    // override is cleared.
+    ResolveMovementControlType_();
   }
 
  protected:
   auto DoGetDeviceName() -> std::string override;
 
  private:
+  void ResolveMovementControlType_();
   void UpdateDPad();
   void UpdateButtons(bool new_touch = false);
   MovementControlType movement_control_type_{MovementControlType::kSwipe};

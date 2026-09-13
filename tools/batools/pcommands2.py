@@ -746,6 +746,12 @@ def asset_bundle_build() -> None:
         if isinstance(existing, dict):
             apvs = existing.get('asset_package_versions')
             if isinstance(apvs, dict) and sorted(apvs) == expected_apverids:
+                # Mark the manifest newer than the inputs that triggered
+                # us. Make keys this target on the wrapper modules whose
+                # pins we just found unchanged, so returning without
+                # touching it would leave the target perpetually out of
+                # date and re-run this command on every single build.
+                os.utime(bundle_path, None)
                 return
 
     print(

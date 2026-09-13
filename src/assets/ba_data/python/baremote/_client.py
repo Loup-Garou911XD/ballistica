@@ -2,17 +2,18 @@
 #
 """Network client for talking to a BombSquad host as a controller."""
 
+import math
 import time
 import random
 import select
 import socket
+import logging
 import threading
 from enum import Enum
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 import babase
-from babase import remotelog
 
 from baremote import _protocol
 
@@ -20,6 +21,10 @@ if TYPE_CHECKING:
     from typing import Callable
 
     from baremote._state import RemoteState
+
+#: Feature-set-local logger, same shape as baplus's 'ba.consolesession'
+#: and baclassic's 'ba.controlpermission'.
+logger = logging.getLogger('ba.remote')
 
 #: How often we resend the discovery broadcast while scanning.
 _SCAN_INTERVAL = 1.0
@@ -252,7 +257,7 @@ class RemoteClient:
             # Unreachable networks and the like are routine here; a
             # broadcast to an interface that just went away shouldn't
             # take the thread down.
-            remotelog.debug('remote send to %s failed: %s', addr, exc)
+            logger.debug('remote send to %s failed: %s', addr, exc)
 
     def _push(self, call: Callable[[], None]) -> None:
         """Run something on the logic thread.
@@ -288,7 +293,7 @@ class RemoteClient:
                     self._drain(sock)
                 self._tick()
             except Exception:
-                remotelog.exception('error in remote client loop')
+                logger.exception('error in remote client loop')
                 time.sleep(0.1)
 
     def _next_tick_delay(self) -> float:
@@ -305,22 +310,21 @@ class RemoteClient:
             scanning = self._scanning
             connstate = self._connstate
 
-        deadlines: list[float] = []
+        # Infinity for 'nothing scheduled' lets that case fall out to the
+        # ceiling below with no special-casing.
+        deadline = math.inf
         if scanning:
-            deadlines.append(self._last_scan_send + _SCAN_INTERVAL)
+            deadline = min(deadline, self._last_scan_send + _SCAN_INTERVAL)
         if connstate is ConnectionState.CONNECTING:
-            deadlines.append(self._last_handshake_send + _HANDSHAKE_INTERVAL)
+            deadline = min(
+                deadline, self._last_handshake_send + _HANDSHAKE_INTERVAL
+            )
         elif connstate is ConnectionState.CONNECTED:
-            deadlines.append(self._last_state_send + _STATE_INTERVAL)
-
-        if not deadlines:
-            return _MAX_POLL_INTERVAL
+            deadline = min(deadline, self._last_state_send + _STATE_INTERVAL)
 
         # The ceiling applies regardless: it is what bounds how long
         # stop() waits for us to notice _stop.
-        return max(
-            0.0, min(min(deadlines) - time.monotonic(), _MAX_POLL_INTERVAL)
-        )
+        return min(max(deadline - time.monotonic(), 0.0), _MAX_POLL_INTERVAL)
 
     def _drain(self, sock: socket.socket) -> None:
         while True:

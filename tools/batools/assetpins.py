@@ -67,7 +67,6 @@ from batools.version import get_current_api_version
 if TYPE_CHECKING:
     from pathlib import Path
 
-    from bacommon.metascan import ScanResults
     from bacommon.restapi.v1.accounts import AccountResponse
 
 
@@ -841,39 +840,32 @@ def discover_wrapper_apverids(projroot: Path) -> set[str]:
     which re-reads every wrapper module off disk to classify it -- work
     that would all be discarded here.
     """
-    results = _scan_python_sources(projroot)
-    if results is None:
-        return set()
-    return set(results.asset_packages)
+    return set(_scan_python_sources(projroot))
 
 
-def _scan_python_sources(projroot: Path) -> ScanResults | None:
-    """Meta-scan results for the project's Python tree, or None.
+def _scan_python_sources(projroot: Path) -> dict[str, list[str]]:
+    """Asset-package apverid -> wrapper modules, from the python tree.
 
-    None means the tree isn't there (a partial checkout); every caller
-    treats that as 'nothing found'.
+    Empty when the tree isn't there (a partial checkout), which every
+    caller wants to treat as 'nothing found' anyway.
     """
     from bacommon.metascan import DirectoryScan
 
     python_root = projroot / 'src/assets/ba_data/python'
     if not python_root.is_dir():
-        return None
+        return {}
 
     scanner = DirectoryScan(paths=[str(python_root)])
     scanner.run()
-    return scanner.results
+    return scanner.results.asset_packages
 
 
 def _discover_wrapper_pins(projroot: Path) -> list[Pin]:
     """Walk Python source via bacommon.metascan to find wrappers."""
     from pathlib import Path
 
-    results = _scan_python_sources(projroot)
-    if results is None:
-        return []
-
     pins: list[Pin] = []
-    for apverid, modulenames in results.asset_packages.items():
+    for apverid, modulenames in _scan_python_sources(projroot).items():
         for modulename in modulenames:
             file_path = Path(
                 'src/assets/ba_data/python',
