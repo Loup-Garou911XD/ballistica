@@ -129,8 +129,6 @@ def test_parse_state_ack() -> None:
     assert _protocol.parse_state_ack(b'\x05\x2a') is None
 
 
-def test_disconnect_round_trip() -> None:
-    """Goodbye packet and its ack."""
+def test_pack_disconnect() -> None:
+    """Goodbye packet."""
     assert _protocol.pack_disconnect(9) == b'\x04\x09'
-    assert _protocol.is_disconnect_ack(b'\x07')
-    assert not _protocol.is_disconnect_ack(b'\x06\x00')

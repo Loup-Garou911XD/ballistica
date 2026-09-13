@@ -770,7 +770,6 @@ void JoystickInput::HandleSDLEvent(const BAEvent* e) {
     }
   }
 
-
   if (would_go_to_ui && g_base->ui->RequestMainUIControl(this)) {
     bool pass{};
 
@@ -872,8 +871,8 @@ void JoystickInput::HandleSDLEvent(const BAEvent* e) {
         // action, each of which activated whatever was selected -- the
         // second one landing in the window the first had just opened.
         if (e->jbutton.button != hold_position_button_
-            && e->jbutton.button != run_trigger1_
-            && e->jbutton.button != run_trigger2_) {
+            && e->jbutton.button != run_button1_
+            && e->jbutton.button != run_button2_) {
           pass = true;
           if (e->jbutton.button == start_button_
               || e->jbutton.button == start_button_2_) {
@@ -901,8 +900,8 @@ void JoystickInput::HandleSDLEvent(const BAEvent* e) {
             // first left a remote-app pickup press opening the party
             // window instead of activating the selected widget.
             if (g_base->ui->IsPartyIconVisible()
-                && e->jbutton.button == pickup_button_
-                && !IsRemoteControl() && !IsRemoteApp()) {
+                && e->jbutton.button == pickup_button_ && !IsRemoteControl()
+                && !IsRemoteApp()) {
               pass = false;
               g_base->ui->ActivatePartyIcon();
               break;
@@ -914,7 +913,6 @@ void JoystickInput::HandleSDLEvent(const BAEvent* e) {
       default:
         break;
     }
-
     if (pass) {
       switch (wm) {
         case WidgetMessage::Type::kMoveUp:

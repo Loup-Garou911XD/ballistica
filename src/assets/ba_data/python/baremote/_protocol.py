@@ -191,8 +191,3 @@ def pack_disconnect(client_id: int) -> bytes:
     never on a timeout.
     """
     return bytes([PACKET_DISCONNECT, client_id])
-
-
-def is_disconnect_ack(data: bytes) -> bool:
-    """Whether this is the host acknowledging our goodbye."""
-    return len(data) >= 1 and data[0] == PACKET_DISCONNECT_ACK

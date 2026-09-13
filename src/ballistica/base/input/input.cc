@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -548,7 +549,7 @@ void Input::SetOnScreenControlsForced(bool val) {
   assert(g_base->InLogicThread());
   on_screen_controls_forced_ = val;
 
-  if (!val || g_core->HeadlessMode()) {
+  if (g_core->HeadlessMode()) {
     return;
   }
 
@@ -557,15 +558,24 @@ void Input::SetOnScreenControlsForced(bool val) {
   // designed to come and go, and TouchInput draws nothing and emits
   // nothing while no delegate is attached to a player, so an idle one
   // costs nothing.
-  if (touch_input_ == nullptr) {
+  if (val && touch_input_ == nullptr) {
     touch_input_ = Object::NewDeferred<TouchInput>();
     PushAddInputDeviceCall(touch_input_, false);
   }
 
-  // A pointer is a single finger, so pick the style that works with one:
-  // the floating stick, held and dragged, rather than swipe.
-  touch_input_->set_movement_control_type_override(
-      TouchInput::MovementControlType::kJoystick);
+  if (touch_input_ != nullptr) {
+    // A pointer is a single finger, so pick the style that works with
+    // one: the floating stick, held and dragged, rather than swipe.
+    // Cleared again when the mode no longer wants these, so a later mode
+    // gets the config's own setting back -- every other app-mode hook
+    // here is fully recomputed on each switch and this one should be
+    // too.
+    std::optional<TouchInput::MovementControlType> movement_style;
+    if (val) {
+      movement_style = TouchInput::MovementControlType::kJoystick;
+    }
+    touch_input_->set_movement_control_type_override(movement_style);
+  }
 }
 
 auto Input::MouseDrivesTouchInput_() const -> bool {
@@ -1363,14 +1373,32 @@ void Input::HandleMouseMotion_(const Vector2f& position) {
   float old_cursor_pos_x = cursor_pos_x_;
   float old_cursor_pos_y = cursor_pos_y_;
 
-  // Convert normalized view coords to our virtual ones.
-  cursor_pos_x_ = g_base->graphics->PixelToVirtualX(
-      position.x * g_base->graphics->screen_pixel_width());
-  cursor_pos_y_ = g_base->graphics->PixelToVirtualY(
-      position.y * g_base->graphics->screen_pixel_height());
-
   last_mouse_move_time_ = g_core->AppTimeSeconds();
   mouse_move_count_++;
+
+  // Convert normalized view coords to our virtual ones.
+  HandleMouseMotionAtVirtual_(
+      g_base->graphics->PixelToVirtualX(
+          position.x * g_base->graphics->screen_pixel_width()),
+      g_base->graphics->PixelToVirtualY(
+          position.y * g_base->graphics->screen_pixel_height()));
+
+  // Manual camera motion.
+  Camera* camera = g_base->graphics->camera();
+  if (camera && camera->manual()) {
+    float move_h = (cursor_pos_x_ - old_cursor_pos_x)
+                   / g_base->graphics->screen_virtual_width();
+    float move_v = (cursor_pos_y_ - old_cursor_pos_y)
+                   / g_base->graphics->screen_virtual_width();
+    camera->ManualHandleMouseMove(move_h, move_v);
+  }
+}
+
+void Input::HandleMouseMotionAtVirtual_(float virtual_x, float virtual_y) {
+  assert(g_base->InLogicThread());
+
+  cursor_pos_x_ = virtual_x;
+  cursor_pos_y_ = virtual_y;
 
   // Feed the on-screen touch controls from the mouse where that applies
   // (see MouseDrivesTouchInput_). They usually handle their own events,
@@ -1383,16 +1411,6 @@ void Input::HandleMouseMotion_(const Vector2f& position) {
 
   // Let any UI stuff handle it.
   g_base->ui->HandleMouseMotion(cursor_pos_x_, cursor_pos_y_);
-
-  // Manual camera motion.
-  Camera* camera = g_base->graphics->camera();
-  if (camera && camera->manual()) {
-    float move_h = (cursor_pos_x_ - old_cursor_pos_x)
-                   / g_base->graphics->screen_virtual_width();
-    float move_v = (cursor_pos_y_ - old_cursor_pos_y)
-                   / g_base->graphics->screen_virtual_width();
-    camera->ManualHandleMouseMove(move_h, move_v);
-  }
 }
 
 void Input::PushMouseDownEvent(int button, const Vector2f& position) {
@@ -1549,21 +1567,21 @@ void Input::PushUINavEvent(WidgetMessage::Type type) {
 void Input::PushMouseButtonAtVirtualCoords(int button, float virtual_x,
                                            float virtual_y, bool pressed) {
   // Schedule the dispatch on the logic thread (where UI lives).
-  g_base->logic->event_loop()->PushCall([this, button, virtual_x, virtual_y,
-                                         pressed] {
-    assert(g_base->InLogicThread());
+  g_base->logic->event_loop()->PushCall(
+      [this, button, virtual_x, virtual_y, pressed] {
+        assert(g_base->InLogicThread());
 
-    // Go through the same handlers a real mouse does rather than
-    // straight to the ui, so everything else a click passes through on
-    // the way -- the on-screen touch controls, the manual camera --
-    // sees it too. Anything less makes automation able to drive only
-    // half the app.
-    if (pressed) {
-      HandleMouseDownAtVirtual_(button, virtual_x, virtual_y);
-    } else {
-      HandleMouseUpAtVirtual_(button, virtual_x, virtual_y);
-    }
-  });
+        // Go through the same handlers a real mouse does rather than
+        // straight to the ui, so everything else a click passes through on
+        // the way -- the on-screen touch controls, the manual camera --
+        // sees it too. Anything less makes automation able to drive only
+        // half the app.
+        if (pressed) {
+          HandleMouseDownAtVirtual_(button, virtual_x, virtual_y);
+        } else {
+          HandleMouseUpAtVirtual_(button, virtual_x, virtual_y);
+        }
+      });
 }
 
 void Input::PushMouseClickAtVirtualCoords(int button, float virtual_x,
@@ -1595,13 +1613,9 @@ void Input::PushMouseDragAtVirtualCoords(int button, float virtual_x,
     int stepsfull = std::max(1, steps);
     for (int i = 1; i <= stepsfull; ++i) {
       float amt = static_cast<float>(i) / static_cast<float>(stepsfull);
-      cursor_pos_x_ = virtual_x + (virtual_end_x - virtual_x) * amt;
-      cursor_pos_y_ = virtual_y + (virtual_end_y - virtual_y) * amt;
-      if (MouseDrivesTouchInput_()) {
-        touch_input_->HandleTouchMoved(reinterpret_cast<void*>(1),
-                                       cursor_pos_x_, cursor_pos_y_);
-      }
-      g_base->ui->HandleMouseMotion(cursor_pos_x_, cursor_pos_y_);
+      HandleMouseMotionAtVirtual_(
+          virtual_x + (virtual_end_x - virtual_x) * amt,
+          virtual_y + (virtual_end_y - virtual_y) * amt);
     }
     HandleMouseUpAtVirtual_(button, cursor_pos_x_, cursor_pos_y_);
   });

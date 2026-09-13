@@ -51,6 +51,27 @@ class BundlePackage:
     #: use the key, so only discovered packages carry this.
     apverid: str | None = None
 
+    def resolve_apverid(self, pconfig: dict) -> str:
+        """Our concrete apverid, following the projectconfig pin if any.
+
+        The one place the two identity fields above are collapsed, so no
+        caller has to branch on which of them is set.
+        """
+        from efro.error import CleanError
+
+        if self.apverid is not None:
+            return self.apverid
+
+        assert self.projectconfig_key is not None
+        value = pconfig.get(self.projectconfig_key)
+        if not isinstance(value, str) or not value:
+            raise CleanError(
+                f"Need a string '{self.projectconfig_key}' value in"
+                f' projectconfig; got'
+                f' {type(value).__name__} value {value!r}.'
+            )
+        return value
+
 
 @dataclass(frozen=True)
 class BundleProfile:
@@ -58,6 +79,13 @@ class BundleProfile:
 
     name: str
     packages: tuple[BundlePackage, ...]
+
+    #: Whether a plus-less project should additionally bundle every
+    #: package its source tree asks for (see
+    #: :func:`packages_for_project`). True for profiles feeding a build
+    #: that draws; a headless build has no ui to feed, and one without
+    #: plus is a server.
+    bundles_discovered_packages: bool = False
 
 
 # The builtin/construct package, pinned via projectconfig's "assets"
@@ -78,7 +106,11 @@ _BUILTINS_HEADLESS = BundlePackage(
 )
 
 PROFILES: dict[str, BundleProfile] = {
-    'gui-minimal': BundleProfile(name='gui-minimal', packages=(_BUILTINS_GUI,)),
+    'gui-minimal': BundleProfile(
+        name='gui-minimal',
+        packages=(_BUILTINS_GUI,),
+        bundles_discovered_packages=True,
+    ),
     'headless-minimal': BundleProfile(
         name='headless-minimal', packages=(_BUILTINS_HEADLESS,)
     ),
@@ -117,8 +149,10 @@ def packages_for_project(
     construction, and stays correct for any feature-set combination
     without anyone maintaining a parallel package list.
 
-    Headless profiles are left alone: they draw nothing, and a headless
-    build with no plus is a server, not something with a ui to feed.
+    Profiles opt into this with
+    :attr:`BundleProfile.bundles_discovered_packages`; a headless one
+    does not, since it draws nothing and a headless build with no plus
+    is a server rather than something with a ui to feed.
     """
     from pathlib import Path
 
@@ -126,9 +160,9 @@ def packages_for_project(
 
     from batools.featureset import FeatureSet
 
-    # Only gui profiles feed a drawing build, and only a plus-less
-    # project needs the treatment.
-    if profile.name.startswith('headless'):
+    # Only profiles that feed a drawing build want this, and only a
+    # plus-less project needs it.
+    if not profile.bundles_discovered_packages:
         return profile.packages
 
     fsets = {f.name for f in FeatureSet.get_all_for_project(projroot)}
@@ -147,15 +181,9 @@ def packages_for_project(
     # add what the tree asks for on top, at the same flavor. Resolve the
     # declared pins once here rather than per discovered package.
     pconfig = getprojectconfig(Path(projroot))
-    declared_names: set[str] = set()
-    for pkg in profile.packages:
-        pinned = (
-            pconfig.get(pkg.projectconfig_key)
-            if pkg.projectconfig_key
-            else pkg.apverid
-        )
-        if isinstance(pinned, str) and pinned:
-            declared_names.add(_package_name(pinned))
+    declared_names = {
+        _package_name(pkg.resolve_apverid(pconfig)) for pkg in profile.packages
+    }
 
     out = list(profile.packages)
     for apverid in sorted(wanted):
@@ -176,5 +204,7 @@ def packages_for_project(
 
 def _package_name(apverid: str) -> str:
     """``a-0.bauiv1assets.260831a`` -> ``bauiv1assets``."""
-    parts = apverid.split('.')
-    return parts[1] if len(parts) > 1 else apverid
+    from batools.assetpins import account_and_package_or_bare_dev
+
+    _account, package = account_and_package_or_bare_dev(apverid)
+    return package

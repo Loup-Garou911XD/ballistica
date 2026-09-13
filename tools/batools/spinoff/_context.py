@@ -34,7 +34,6 @@ if TYPE_CHECKING:
     from batools.project import ProjectUpdater
 
 
-
 class SpinoffContext:
     """Guts of the spinoff system."""
 

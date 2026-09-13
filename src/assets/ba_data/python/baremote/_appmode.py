@@ -4,6 +4,7 @@
 
 from typing import TYPE_CHECKING, override
 
+import _babase
 import _baremote
 import babase
 import bauiv1 as bui
@@ -17,6 +18,7 @@ from baremote._controlwindow import ControlWindow
 
 if TYPE_CHECKING:
     from babase import AppIntent, AppModeConfig
+
 
 class RemoteAppModeConfig(babase.AppModeConfig):
     """Config for a run of :class:`RemoteAppMode`.
@@ -54,7 +56,9 @@ class RemoteAppMode(babase.AppMode):
     @override
     def handle_intent(self, intent: AppIntent) -> None:
         if isinstance(intent, babase.AppIntentExec):
-            _baremote.remote_app_mode_handle_app_intent_exec(intent.code)
+            # Running a command as an intent is mode-agnostic; the
+            # ``empty_`` in the name is just where it was first needed.
+            _babase.empty_app_mode_handle_app_intent_exec(intent.code)
             return
         # Nothing to do for a default intent; on_activate already brought
         # our ui up.
@@ -83,7 +87,7 @@ class RemoteAppMode(babase.AppMode):
         _baremote.remote_app_mode_activate()
 
         subsystem = babase.app.remote
-        subsystem.start_client()
+        subsystem.client.start()
         subsystem.client.on_connected = self._on_connected
         subsystem.client.on_disconnected = self._on_disconnected
 
@@ -174,9 +178,7 @@ class RemoteAppMode(babase.AppMode):
     # ---------------------------------------------------------------- interna
 
     def _have_ui(self) -> bool:
-        return (
-            self._scan_window is not None or self._control_window is not None
-        )
+        return self._scan_window is not None or self._control_window is not None
 
     def _close_windows(self) -> None:
         if self._scan_window is not None:

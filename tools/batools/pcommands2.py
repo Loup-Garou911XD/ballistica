@@ -704,17 +704,7 @@ def asset_bundle_build() -> None:
     # source tree in a plus-less project).
     resolved: list[tuple[str, BundlePackage]] = []
     for pkg in packages_for_project(profile, str(pcommand.PROJROOT)):
-        if pkg.apverid is not None:
-            resolved.append((pkg.apverid, pkg))
-            continue
-        assert pkg.projectconfig_key is not None
-        apverid = pconfig.get(pkg.projectconfig_key)
-        if not isinstance(apverid, str) or not apverid:
-            raise CleanError(
-                f"Need a string '{pkg.projectconfig_key}' value in"
-                f' projectconfig; got'
-                f' {type(apverid).__name__} value {apverid!r}.'
-            )
+        apverid = pkg.resolve_apverid(pconfig)
         # Bare ``<owner>.<name>.dev`` is a request for the latest dev
         # snapshot; it must be resolved before any build consumes it.
         if is_unresolved_dev(apverid):

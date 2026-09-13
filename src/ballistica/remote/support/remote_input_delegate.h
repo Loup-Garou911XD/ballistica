@@ -28,8 +28,7 @@ class RemoteInputDelegate : public base::InputDeviceDelegate {
 
   /// Whether we're currently acting as a controller. This is global
   /// rather than per-delegate; it reflects whether the app as a whole is
-  /// connected to a host.
-  static auto attached() -> bool { return attached_; }
+  /// connected to a host. Read it back through AttachedToPlayer().
   static void set_attached(bool val) { attached_ = val; }
 
   void InputCommand(InputType type, float value) override;

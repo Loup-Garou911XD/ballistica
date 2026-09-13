@@ -62,6 +62,13 @@ void RemoteAppMode::OnDeactivate() {
   // to go.
   RemoteInputDelegate::set_attached(false);
 
+  // Put the button layout back the way we found it; the meshes it
+  // describes go away with our BaseAssetSet, so leaving it off would
+  // stack the next mode's pre-positioned art on one spot.
+  if (auto* touch = g_base->input->touch_input()) {
+    touch->set_action_button_meshes_prepositioned(true);
+  }
+
   if (uiv1_ != nullptr) {
     g_base->ui->SetUIDelegate(nullptr);
     uiv1_ = nullptr;

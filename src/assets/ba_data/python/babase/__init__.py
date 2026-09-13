@@ -230,6 +230,7 @@ from babase._logging import (
     balog,
     lifecyclelog,
     netlog,
+    remotelog,
     uilog,
     userlog,
 )
@@ -436,6 +437,7 @@ __all__ = [
     'reload_hooks',
     'langstr_value',
     'reload_media',
+    'remotelog',
     'request_permission',
     'resolve_langstrs',
     'translate_server_text',

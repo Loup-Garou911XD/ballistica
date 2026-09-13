@@ -3,6 +3,8 @@
 #include "ballistica/remote/python/methods/python_methods_remote.h"
 
 #include <cstdio>
+#include <list>
+#include <string>
 #include <vector>
 
 #include "ballistica/base/base.h"
@@ -10,7 +12,7 @@
 #include "ballistica/core/platform/platform.h"
 #include "ballistica/remote/support/remote_app_mode.h"
 #include "ballistica/remote/support/remote_input_delegate.h"
-#include "ballistica/shared/python/python_command.h"
+#include "ballistica/shared/python/python.h"
 #include "ballistica/shared/python/python_macros.h"
 
 namespace ballistica::remote {
@@ -31,35 +33,6 @@ static PyMethodDef PyRemoteAppModeActivateDef = {
     METH_NOARGS,                           // flags
 
     "remote_app_mode_activate() -> None\n"
-    "\n"
-    ":meta private:",
-};
-
-// ------------------ remote_app_mode_handle_app_intent_exec -------------------
-
-static auto PyRemoteAppModeHandleAppIntentExec(PyObject* self, PyObject* args,
-                                               PyObject* keywds) -> PyObject* {
-  BA_PYTHON_TRY;
-  const char* command;
-  static const char* kwlist[] = {"command", nullptr};
-  if (!PyArg_ParseTupleAndKeywords(args, keywds, "s",
-                                   const_cast<char**>(kwlist), &command)) {
-    return nullptr;
-  }
-  // Return value ignored, matching EmptyAppMode; intents have no success
-  // channel yet.
-  PythonCommand(command, BA_BUILD_COMMAND_FILENAME)
-      .Exec(true, nullptr, nullptr);
-  Py_RETURN_NONE;
-  BA_PYTHON_CATCH;
-}
-
-static PyMethodDef PyRemoteAppModeHandleAppIntentExecDef = {
-    "remote_app_mode_handle_app_intent_exec",         // name
-    (PyCFunction)PyRemoteAppModeHandleAppIntentExec,  // method
-    METH_VARARGS | METH_KEYWORDS,                     // flags
-
-    "remote_app_mode_handle_app_intent_exec(command: str) -> None\n"
     "\n"
     ":meta private:",
 };
@@ -99,20 +72,17 @@ static PyMethodDef PySetInputAttachedDef = {
 
 static auto PyGetBroadcastAddrs(PyObject* self) -> PyObject* {
   BA_PYTHON_TRY;
-  auto addrs = g_core->platform->GetBroadcastAddrs();
-  PyObject* list = PyList_New(0);
-  for (uint32_t addr : addrs) {
+  std::list<std::string> out;
+  for (uint32_t addr : g_core->platform->GetBroadcastAddrs()) {
     char buffer[16];
     snprintf(buffer, sizeof(buffer), "%d.%d.%d.%d",
              static_cast<int>((addr >> 24) & 0xFF),
              static_cast<int>((addr >> 16) & 0xFF),
              static_cast<int>((addr >> 8) & 0xFF),
              static_cast<int>(addr & 0xFF));
-    PyObject* str = PyUnicode_FromString(buffer);
-    PyList_Append(list, str);
-    Py_DECREF(str);
+    out.emplace_back(buffer);
   }
-  return list;
+  return Python::StringList(out).HandOver();
   BA_PYTHON_CATCH;
 }
 
@@ -135,7 +105,6 @@ static PyMethodDef PyGetBroadcastAddrsDef = {
 auto PythonMethodsRemote::GetMethods() -> std::vector<PyMethodDef> {
   return {
       PyRemoteAppModeActivateDef,
-      PyRemoteAppModeHandleAppIntentExecDef,
       PySetInputAttachedDef,
       PyGetBroadcastAddrsDef,
   };

@@ -278,6 +278,10 @@ class Input {
   void DestroyKeyboardInputDevices_();
   void AddFakeKeyMods_(BAKeysym* sym);
   auto GetFuzzyInputDevice_() -> InputDevice*;
+  auto MouseDrivesTouchInput_() const -> bool;
+  void HandleMouseDownAtVirtual_(int button, float virtual_x, float virtual_y);
+  void HandleMouseUpAtVirtual_(int button, float virtual_x, float virtual_y);
+  void HandleMouseMotionAtVirtual_(float virtual_x, float virtual_y);
 
   std::list<std::string> input_lock_temp_labels_;
   std::list<std::string> input_unlock_temp_labels_;
@@ -293,9 +297,6 @@ class Input {
   void* single_touch_{};
   KeyboardInput* keyboard_input_{};
   KeyboardInput* keyboard_input_2_{};
-  auto MouseDrivesTouchInput_() const -> bool;
-  void HandleMouseDownAtVirtual_(int button, float virtual_x, float virtual_y);
-  void HandleMouseUpAtVirtual_(int button, float virtual_x, float virtual_y);
   TouchInput* touch_input_{};
   bool on_screen_controls_forced_{};
   HandleKeyPressCall* keyboard_input_capture_press_{};

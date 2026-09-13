@@ -88,6 +88,9 @@ lifecyclelog = logging.getLogger(ClientLoggerName.LIFECYCLE.value)
 #: Logger for general networking activity.
 netlog = logging.getLogger(ClientLoggerName.NETWORKING.value)
 
+#: Logger for acting as a remote-control for a host on the lan.
+remotelog = logging.getLogger(ClientLoggerName.REMOTE.value)
+
 #: Logger for connectivity bring-up — picking the nearest/best
 #: regional server.
 connectivitylog = logging.getLogger(ClientLoggerName.CONNECTIVITY.value)

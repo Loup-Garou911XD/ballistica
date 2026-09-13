@@ -24,10 +24,10 @@ fset.requirements = {'core', 'base', 'ui_v1'}
 # Creates a RemoteAppSubsystem at 'ba*.app.remote'.
 fset.has_python_app_subsystem = True
 
-# Our asset-package wrapper module lives inside babase's package (the
-# babase wrapper flavor is what BaseAssetSet handles come from, and a
-# feature-set package may not reach into another's private modules), so
-# spinoff's name-based omission won't catch it. It has to go with us.
+# Our asset-package wrapper module lives inside babase's package --
+# asset handles are per-package-flavor, and the babase flavor is what
+# BaseAssetSet slots take, same as bauiv1/_classicassets.py. So
+# spinoff's name-based omission won't catch it; it has to go with us.
 fset.spinoff_extra_omit_paths = {
     'src/assets/ba_data/python/babase/_remoteassets.py',
 }

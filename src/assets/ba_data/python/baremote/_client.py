@@ -6,13 +6,13 @@ import time
 import random
 import select
 import socket
-import logging
 import threading
 from enum import Enum
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 import babase
+from babase import remotelog
 
 from baremote import _protocol
 
@@ -20,8 +20,6 @@ if TYPE_CHECKING:
     from typing import Callable
 
     from baremote._state import RemoteState
-
-logger = logging.getLogger('ba.remote')
 
 #: How often we resend the discovery broadcast while scanning.
 _SCAN_INTERVAL = 1.0
@@ -36,6 +34,10 @@ _HANDSHAKE_TIMEOUT = 5.0
 #: State packet rate. The host applies states in order, so this is also
 #: our input resolution.
 _STATE_INTERVAL = 1.0 / 30.0
+
+#: Longest we ever sit in select() with nothing scheduled. Only bounds
+#: how quickly the thread notices it has been asked to stop.
+_MAX_POLL_INTERVAL = 0.25
 
 #: How many unacked states we keep around to retransmit. Every one of
 #: them rides along in each packet, which is what keeps the host from
@@ -137,8 +139,13 @@ class RemoteClient:
     # -------------------------------------------------------------- lifecycle
 
     def start(self) -> None:
-        """Bring the socket and worker thread up."""
-        assert self._thread is None
+        """Bring the socket and worker thread up.
+
+        A no-op if we are already running, so callers need not track
+        whether they have started us.
+        """
+        if self._thread is not None:
+            return
 
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
@@ -245,7 +252,7 @@ class RemoteClient:
             # Unreachable networks and the like are routine here; a
             # broadcast to an interface that just went away shouldn't
             # take the thread down.
-            logger.debug('remote send to %s failed: %s', addr, exc)
+            remotelog.debug('remote send to %s failed: %s', addr, exc)
 
     def _push(self, call: Callable[[], None]) -> None:
         """Run something on the logic thread.
@@ -274,27 +281,46 @@ class RemoteClient:
 
         while not self._stop.is_set():
             try:
-                # Only a live connection needs sub-frame responsiveness;
-                # discovery replies arrive at 1hz and an idle client has
-                # nothing at all to do. The thread outlives both states
-                # (it is only stopped at app shutdown), so polling at the
-                # connected rate throughout would burn wakeups for the
-                # whole session.
-                with self._lock:
-                    connstate = self._connstate
-                    scanning = self._scanning
-                if connstate is ConnectionState.IDLE:
-                    timeout = 0.05 if scanning else 0.25
-                else:
-                    timeout = 0.01
-
-                readable, _, _ = select.select([sock], [], [], timeout)
+                readable, _, _ = select.select(
+                    [sock], [], [], self._next_tick_delay()
+                )
                 if readable:
                     self._drain(sock)
                 self._tick()
             except Exception:
-                logger.exception('error in remote client loop')
+                remotelog.exception('error in remote client loop')
                 time.sleep(0.1)
+
+    def _next_tick_delay(self) -> float:
+        """How long we can sleep before :meth:`_tick` has work to do.
+
+        select() returns the moment a packet lands, so this governs only
+        how promptly our own *timed* sends go out. Sleeping to the
+        nearest deadline rather than at a fixed rate is what keeps an
+        idle client -- and the thread is idle for most of a session,
+        since it is only stopped at app shutdown -- from waking dozens of
+        times a second to find nothing to do.
+        """
+        with self._lock:
+            scanning = self._scanning
+            connstate = self._connstate
+
+        deadlines: list[float] = []
+        if scanning:
+            deadlines.append(self._last_scan_send + _SCAN_INTERVAL)
+        if connstate is ConnectionState.CONNECTING:
+            deadlines.append(self._last_handshake_send + _HANDSHAKE_INTERVAL)
+        elif connstate is ConnectionState.CONNECTED:
+            deadlines.append(self._last_state_send + _STATE_INTERVAL)
+
+        if not deadlines:
+            return _MAX_POLL_INTERVAL
+
+        # The ceiling applies regardless: it is what bounds how long
+        # stop() waits for us to notice _stop.
+        return max(
+            0.0, min(min(deadlines) - time.monotonic(), _MAX_POLL_INTERVAL)
+        )
 
     def _drain(self, sock: socket.socket) -> None:
         while True:
@@ -320,8 +346,7 @@ class RemoteClient:
             self._handle_state_ack(data)
         elif ptype == _protocol.PACKET_DISCONNECT:
             self._handle_host_disconnect(data)
-        elif ptype == _protocol.PACKET_DISCONNECT_ACK:
-            pass
+        # Anything else -- a disconnect-ack included -- needs no action.
 
     def _handle_game_response(self, data: bytes, addr: tuple[str, int]) -> None:
         # No self-filtering here on purpose. Our app-mode turns the
@@ -518,16 +543,18 @@ class RemoteClient:
         self._push(lambda: call(reason))
 
 
+_ERROR_MESSAGES = {
+    _protocol.RemoteError.VERSION_MISMATCH: 'Version mismatch with host.',
+    _protocol.RemoteError.GAME_SHUTTING_DOWN: 'The host is shutting down.',
+    _protocol.RemoteError.NOT_ACCEPTING_CONNECTIONS: (
+        'The host is not accepting connections.'
+    ),
+    _protocol.RemoteError.NOT_CONNECTED: 'The host dropped our connection.',
+}
+
+
 def _describe_error(err: _protocol.RemoteError | None) -> str | None:
-    if err is _protocol.RemoteError.VERSION_MISMATCH:
-        return 'Version mismatch with host.'
-    if err is _protocol.RemoteError.GAME_SHUTTING_DOWN:
-        return 'The host is shutting down.'
-    if err is _protocol.RemoteError.NOT_ACCEPTING_CONNECTIONS:
-        return 'The host is not accepting connections.'
-    if err is _protocol.RemoteError.NOT_CONNECTED:
-        return 'The host dropped our connection.'
-    return None
+    return _ERROR_MESSAGES.get(err) if err is not None else None
 
 
 def _dedupe_hosts(hosts: list[HostInfo]) -> list[HostInfo]:

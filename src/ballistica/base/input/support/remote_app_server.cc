@@ -25,7 +25,7 @@ namespace ballistica::base {
 
 /// Button index we synthesize a remote's run press onto. Well clear of
 /// the action buttons (0-5) it also sends; JoystickInput is told about it
-/// via set_run_trigger_button so the ui can tell the two apart.
+/// via set_run_button so the ui can tell the two apart.
 constexpr int kRemoteRunButton{64};
 
 // Just used privately by the remote-server machinery.
@@ -462,7 +462,7 @@ auto RemoteAppServer::GetClient(int request_id, struct sockaddr* addr,
       // Run reaches us as a synthesized button press rather than an
       // analog trigger; tell the device which button that is so the ui
       // path can tell it apart from an action button.
-      clients_[i].joystick_->set_run_trigger_button(kRemoteRunButton);
+      clients_[i].joystick_->set_run_button(kRemoteRunButton);
 
       // If they name they supplied was <= 10 characters, use it as our default
       // player name.

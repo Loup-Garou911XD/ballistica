@@ -67,6 +67,7 @@ from batools.version import get_current_api_version
 if TYPE_CHECKING:
     from pathlib import Path
 
+    from bacommon.metascan import ScanResults
     from bacommon.restapi.v1.accounts import AccountResponse
 
 
@@ -812,7 +813,7 @@ def _discover_pins(projroot: Path) -> list[Pin]:
             if is_unresolved_dev(pc_value)
             else classify_apverid(pc_value)
         )
-        account, package = _account_and_package_or_bare_dev(pc_value)
+        account, package = account_and_package_or_bare_dev(pc_value)
         pins.append(
             Pin(
                 kind='projectconfig',
@@ -840,38 +841,46 @@ def discover_wrapper_apverids(projroot: Path) -> set[str]:
     which re-reads every wrapper module off disk to classify it -- work
     that would all be discarded here.
     """
+    results = _scan_python_sources(projroot)
+    if results is None:
+        return set()
+    return set(results.asset_packages)
+
+
+def _scan_python_sources(projroot: Path) -> ScanResults | None:
+    """Meta-scan results for the project's Python tree, or None.
+
+    None means the tree isn't there (a partial checkout); every caller
+    treats that as 'nothing found'.
+    """
     from bacommon.metascan import DirectoryScan
 
     python_root = projroot / 'src/assets/ba_data/python'
     if not python_root.is_dir():
-        return set()
+        return None
 
     scanner = DirectoryScan(paths=[str(python_root)])
     scanner.run()
-    return set(scanner.results.asset_packages)
+    return scanner.results
 
 
 def _discover_wrapper_pins(projroot: Path) -> list[Pin]:
     """Walk Python source via bacommon.metascan to find wrappers."""
     from pathlib import Path
-    from bacommon.metascan import DirectoryScan
 
-    python_root = projroot / 'src/assets/ba_data/python'
-    if not python_root.is_dir():
+    results = _scan_python_sources(projroot)
+    if results is None:
         return []
 
-    scanner = DirectoryScan(paths=[str(python_root)])
-    scanner.run()
-
     pins: list[Pin] = []
-    for apverid, modulenames in scanner.results.asset_packages.items():
+    for apverid, modulenames in results.asset_packages.items():
         for modulename in modulenames:
             file_path = Path(
                 'src/assets/ba_data/python',
                 *modulename.split('.'),
             ).with_suffix('.py')
             wrapper_type = _detect_wrapper_type(projroot / file_path)
-            account, package = _account_and_package_or_bare_dev(apverid)
+            account, package = account_and_package_or_bare_dev(apverid)
             pins.append(
                 Pin(
                     kind='wrapper',
@@ -922,7 +931,7 @@ def _detect_wrapper_type(path: Path) -> str:
     return match.group(1)
 
 
-def _account_and_package_or_bare_dev(apverid: str) -> tuple[str, str]:
+def account_and_package_or_bare_dev(apverid: str) -> tuple[str, str]:
     """Return ``(account, package)`` from an apverid.
 
     Tolerates bare-dev apverids (``<account>.<name>.dev``).

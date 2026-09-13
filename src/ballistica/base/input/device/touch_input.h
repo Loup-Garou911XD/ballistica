@@ -46,9 +46,11 @@ class TouchInput : public InputDevice {
   void set_movement_control_type_override(
       std::optional<MovementControlType> val) {
     movement_control_type_override_ = val;
-    if (val.has_value()) {
-      movement_control_type_ = *val;
-    }
+
+    // Re-resolve right now rather than waiting for the next config
+    // apply; that is also what restores the config's own setting when
+    // the override is cleared.
+    ApplyAppConfig();
   }
 
  protected:

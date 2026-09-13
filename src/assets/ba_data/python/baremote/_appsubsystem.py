@@ -29,8 +29,6 @@ class RemoteAppSubsystem(babase.AppSubsystem):
         #: Speaks the protocol on a background thread.
         self.client = RemoteClient(self.state)
 
-        self._started = False
-
     @property
     def player_name(self) -> str:
         """Name we present to hosts."""
@@ -62,15 +60,6 @@ class RemoteAppSubsystem(babase.AppSubsystem):
             cfg.commit()
         return tag
 
-    def start_client(self) -> None:
-        """Bring the network client up if it isn't already."""
-        if self._started:
-            return
-        self.client.start()
-        self._started = True
-
     @override
     def on_app_shutdown(self) -> None:
-        if self._started:
-            self.client.stop()
-            self._started = False
+        self.client.stop()

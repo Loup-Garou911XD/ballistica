@@ -35,6 +35,7 @@ class ClientLoggerName(Enum):
     INPUT = 'ba.input'
     LIFECYCLE = 'ba.lifecycle'
     NETWORKING = 'ba.net'
+    REMOTE = 'ba.remote'
     CONNECTIVITY = 'ba.connectivity'
     V2TRANSPORT = 'ba.v2transport'
     CLOUD_SUBSCRIPTION = 'ba.cloudsub'
@@ -85,6 +86,8 @@ class ClientLoggerName(Enum):
             )
         if self is cls.NETWORKING:
             return 'anything network related'
+        if self is cls.REMOTE:
+            return 'acting as a remote-control for a host on the lan'
         if self is cls.CONNECTIVITY:
             return 'determining nearest/best regional servers'
         if self is cls.V2TRANSPORT:
