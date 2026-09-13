@@ -38,9 +38,9 @@ class TouchInput : public InputDevice {
     movement_control_type_override_ = val;
 
     // Re-resolve just the movement style rather than re-running the
-    // whole config apply (which also re-reads several values through
-    // Python); this is what restores the config's own setting when the
-    // override is cleared.
+    // whole config apply, which reads a further seven config values
+    // through Python; this is what restores the config's own setting
+    // when the override is cleared.
     ResolveMovementControlType_();
   }
 
