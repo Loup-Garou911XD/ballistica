@@ -4,7 +4,6 @@
 
 from typing import TYPE_CHECKING, override
 
-import _babase
 import _baremote
 import babase
 import bauiv1 as bui
@@ -56,9 +55,7 @@ class RemoteAppMode(babase.AppMode):
     @override
     def handle_intent(self, intent: AppIntent) -> None:
         if isinstance(intent, babase.AppIntentExec):
-            # Running a command as an intent is mode-agnostic; the
-            # ``empty_`` in the name is just where it was first needed.
-            _babase.empty_app_mode_handle_app_intent_exec(intent.code)
+            _baremote.remote_app_mode_handle_app_intent_exec(intent.code)
             return
         # Nothing to do for a default intent; on_activate already brought
         # our ui up.

@@ -13,6 +13,7 @@
 #include "ballistica/remote/support/remote_app_mode.h"
 #include "ballistica/remote/support/remote_input_delegate.h"
 #include "ballistica/shared/python/python.h"
+#include "ballistica/shared/python/python_command.h"
 #include "ballistica/shared/python/python_macros.h"
 
 namespace ballistica::remote {
@@ -33,6 +34,37 @@ static PyMethodDef PyRemoteAppModeActivateDef = {
     METH_NOARGS,                           // flags
 
     "remote_app_mode_activate() -> None\n"
+    "\n"
+    ":meta private:",
+};
+
+// ------------------ remote_app_mode_handle_app_intent_exec -------------------
+
+// Each feature-set provides its own; a feature-set package may not reach
+// into another's private binary module (see ClassicAppMode's copy).
+static auto PyRemoteAppModeHandleAppIntentExec(PyObject* self, PyObject* args,
+                                               PyObject* keywds) -> PyObject* {
+  BA_PYTHON_TRY;
+  const char* command;
+  static const char* kwlist[] = {"command", nullptr};
+  if (!PyArg_ParseTupleAndKeywords(args, keywds, "s",
+                                   const_cast<char**>(kwlist), &command)) {
+    return nullptr;
+  }
+  // Return value ignored, matching EmptyAppMode; intents have no success
+  // channel yet.
+  PythonCommand(command, BA_BUILD_COMMAND_FILENAME)
+      .Exec(true, nullptr, nullptr);
+  Py_RETURN_NONE;
+  BA_PYTHON_CATCH;
+}
+
+static PyMethodDef PyRemoteAppModeHandleAppIntentExecDef = {
+    "remote_app_mode_handle_app_intent_exec",         // name
+    (PyCFunction)PyRemoteAppModeHandleAppIntentExec,  // method
+    METH_VARARGS | METH_KEYWORDS,                     // flags
+
+    "remote_app_mode_handle_app_intent_exec(command: str) -> None\n"
     "\n"
     ":meta private:",
 };
@@ -105,6 +137,7 @@ static PyMethodDef PyGetBroadcastAddrsDef = {
 auto PythonMethodsRemote::GetMethods() -> std::vector<PyMethodDef> {
   return {
       PyRemoteAppModeActivateDef,
+      PyRemoteAppModeHandleAppIntentExecDef,
       PySetInputAttachedDef,
       PyGetBroadcastAddrsDef,
   };
