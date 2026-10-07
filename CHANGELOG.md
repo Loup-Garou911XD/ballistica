@@ -1,4 +1,13 @@
 ### 1.8.0 (build 23037, api 9, 2026-10-04)
+- The `BA_DATA_DIR` environment variable now does what the `--data-dir`
+  arg does (the arg wins if both are given), for launchers that can set an
+  environment but not pass args. The Flatpak uses it, so the game no longer
+  needs a wrapper script to start from its data dir.
+- Under Flatpak the default config dir is now the app's own data dir
+  (`~/.var/app/<app-id>/.ballisticakit`) instead of a `--persist` mount
+  over `~/.ballisticakit`. It is the same folder on disk, so nothing moves,
+  but its path is now valid outside the sandbox too, which fixes 'Show Mods
+  Folder' doing nothing.
 - Touchscreen players on Android and iPhone now get haptic feedback from the
   device itself for the same events controllers rumble for (Android 10 and
   newer on devices with a vibrator; iPhones but not iPads). An 'Enable Haptics'
