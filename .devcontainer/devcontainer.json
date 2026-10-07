@@ -1,0 +1,33 @@
+{
+  "name": "Ballistica Development",
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
+  "features": {
+    // Creates the non-root 'vscode' user (uid matched to the host's).
+    "ghcr.io/devcontainers/features/common-utils:2": {},
+    // Only needed for Claude Code below; the build itself uses no node.
+    "ghcr.io/devcontainers/features/node:2": {
+      "version": "24"
+    }
+  },
+  "remoteUser": "vscode",
+
+  // The repo lands in the default /workspaces/<repo> (the only option
+  // in Codespaces). The venv and the generated tools/pcommand wrappers
+  // record absolute paths, so when reusing a local checkout that
+  // already has a .venv from the host, run `make env-clean` and
+  // `rm -rf .venv` before `make env`.
+
+  "onCreateCommand": "npm install -g @anthropic-ai/claude-code",
+  // Bootstrap the dev env: .venv, tool configs, tools/pcommand.
+  "postCreateCommand": "make env",
+
+  "customizations": {
+    "vscode": {
+      "extensions": ["ms-python.python", "ms-vscode.cpptools"]
+    }
+  },
+
+  "shutdownAction": "none"
+}
