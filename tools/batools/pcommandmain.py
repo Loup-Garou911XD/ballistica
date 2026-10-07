@@ -165,6 +165,7 @@ from batools.pcommands3 import (
     generate_flathub_manifest,
     generate_flatpak_build_env,
     flatpak_add_release,
+    flatpak_prebuilt_inputs,
     gen_pyembed,
 )
 from batools.pcommands4 import (
