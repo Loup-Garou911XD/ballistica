@@ -77,11 +77,12 @@
       <image type="source">https://files.ballistica.net/bombsquad/promo/race.png</image>
     </screenshot>
   </screenshots>
-  <content_rating type="oars-1.0">
-    <content_attribute id="violence-cartoon">mild</content_attribute>
-    <content_attribute id="violence-fantasy">mild</content_attribute>
-    <content_attribute id="violence-bloodshed">mild</content_attribute>
+  <content_rating type="oars-1.1">
+    <content_attribute id="violence-cartoon">intense</content_attribute>
     <content_attribute id="social-chat">intense</content_attribute>
+    <content_attribute id="social-info">moderate</content_attribute>
+    <content_attribute id="money-purchasing">intense</content_attribute>
+    <content_attribute id="money-advertising">mild</content_attribute>
     <content_attribute id="money-gambling">mild</content_attribute>
   </content_rating>
   <branding>
