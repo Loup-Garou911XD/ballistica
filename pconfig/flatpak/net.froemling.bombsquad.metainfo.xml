@@ -30,6 +30,7 @@
   <url type="translate">https://legacy.ballistica.net/translate</url>
   <url type="contact">https://ballistica.net/feedback</url>
   <url type="contribute">https://github.com/efroemling/ballistica/wiki/Contributing</url>
+  <url type="vcs-browser">https://github.com/efroemling/ballistica</url>
   <description>
     <p>Blow up your friends in mini-games ranging from capture-the-flag to hockey! Featuring 8
       player local/networked multiplayer, gratuitous explosions, advanced ragdoll face-plant
